@@ -49,13 +49,10 @@ This experiment uses **BR-DWGD** (Brazilian Daily Weather Gridded Data), a high-
 |---|---|---|
 | Tmin | Daily minimum temperature | `Tmin_*.nc` |
 | Tmax | Daily maximum temperature | `Tmax_*.nc` |
-| Precipitation | Daily total precipitation | `pr_*.nc` |
-| Geopotential | Static orography | `geo.nc` |
-| Soil type | Static land surface | `slt.nc` |
 
 - Spatial domain: approximately lat −22° to −7°, lon −57.5° to −43°
 - Temporal coverage: 1961–2024
-- Train/validation split: pre-2000 / post-2000
+- validation years: 1981 and 2000 
 
 Raw NetCDF files are expected under `../data/raw/` relative to the project root. BR-DWGD data can be obtained from the [project page](https://sites.google.com/site/alexandrecandidoxavierufes/brazilian-daily-weather-gridded-data).
 
