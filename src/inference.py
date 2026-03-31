@@ -9,7 +9,7 @@ import torchvision.transforms as transforms
 # from torchvision.transforms import v2
 from sklearn.manifold import TSNE
 from sklearn.decomposition import PCA
-import umap
+# import umap
 
 from src.data_manager import init_data
 from src.msn_train import init_model
