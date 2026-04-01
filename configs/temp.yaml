@@ -3,7 +3,7 @@ criterion:
   final_sharpen: 0.25
   me_max: true
   memax_weight: 1.0
-  num_proto: 15
+  num_proto: 30
   start_sharpen: 0.25
   temperature: 0.1
   batch_size: 512
