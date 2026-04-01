@@ -29,7 +29,7 @@ data:
   split_val: true
 logging:
   folder: checkpoint/temperature-run2/
-  write_tag: temperature-exp-2
+  write_tag: temperature-exp-2-c30
 meta:
   bottleneck: 1
   copy_data: false
