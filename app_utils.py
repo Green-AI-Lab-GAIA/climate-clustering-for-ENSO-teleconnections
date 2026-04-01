@@ -472,7 +472,7 @@ def _lag_formula(comparison_mode: str, lag: int) -> tuple[str, str]:
     return lag_desc, formula
 
 
-@st.cache_data(show_spinner="Computing ENSO anomaly bar chart…")
+@st.cache_resource(show_spinner="Computing ENSO anomaly bar chart…")
 def fig_anomaly_at_lag(comparison_mode: str, year_start: int, year_end: int,
                        selected_clusters: tuple, lag: int = 0):
     d = load_app_data()
