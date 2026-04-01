@@ -330,6 +330,14 @@ def fig_cluster_prototypes(selected_clusters: tuple, top: int = 5):
     if n_rows == 1:
         axes = axes.reshape(1, -1)
 
+    #use global min/max for consistent coloring across clusters
+    gmin, gmax = math.inf, -math.inf
+    for var in range(nvars):
+        vmin, vmax = var_stats[var]
+        gmin = min(gmin, vmin)
+        gmax = max(gmax, vmax)
+
+
     for col_idx, cid in enumerate(clusters):
         imgs = images.get(cid)
         if imgs is None:
@@ -339,8 +347,7 @@ def fig_cluster_prototypes(selected_clusters: tuple, top: int = 5):
             img = imgs[s_idx]   # tensor(nvars, H, W)
             for var in range(nvars):
                 ax = axes[s_idx * nvars + var, col_idx]
-                vmin, vmax = var_stats[var]
-                ax.imshow(img[var].numpy(), cmap="coolwarm", vmin=vmin, vmax=vmax,
+                ax.imshow(img[var].numpy(), cmap="coolwarm", vmin=gmin, vmax=gmax,
                           aspect="auto")
                 if s_idx * nvars + var == 0:
                     ax.set_title(f"Cluster {cid}", fontsize=10, fontweight="bold")
