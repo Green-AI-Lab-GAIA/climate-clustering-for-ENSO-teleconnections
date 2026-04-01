@@ -29,6 +29,3 @@ Navigate using the sidebar on the left.
 
 ---
 """)
-
-st.info("Data and model are loaded once on first visit and cached for the session. "
-        "Expect a short wait on the first page load.")
