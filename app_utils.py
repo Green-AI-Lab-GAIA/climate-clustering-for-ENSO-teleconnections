@@ -23,15 +23,12 @@ PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
-import src.inference as inf
 from src.el_nino import read_enso_data
 
 # ---------------------------------------------------------------------------
 # Config
 # ---------------------------------------------------------------------------
-CONFIG_FILE = "checkpoint/temperature-run2/params-temperature-exp-2-c30.yaml"
-SAVE_PATH = "results/temperature-exp-2-c30"
-VALIDATION = True
+APP_DATA = os.path.join(PROJECT_ROOT, "app_data")
 
 PALETTE30 = list(sns.color_palette("tab20", 20)) + list(sns.color_palette("bright", 10))
 MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
@@ -135,71 +132,53 @@ def get_lagged_anomaly(df_base, oni_index, comparison_mode="neutral",
 
 @st.cache_resource(show_spinner="Loading data…")
 def load_app_data():
-    """Load and prepare all data once. Returns a dict of shared objects.
+    """Load pre-computed app_data/ produced by scripts/precompute_app_data.py.
 
-    Skips model loading entirely — F.pt / F_val.pt are read directly from
-    the pre-computed results folder, so no GPU / model weights are required.
+    No NetCDF files, no model weights — just small pre-computed artefacts.
+    Run scripts/precompute_app_data.py once locally to generate app_data/.
     """
-    os.chdir(PROJECT_ROOT)
+    def _p(*parts):
+        return os.path.join(APP_DATA, *parts)
 
-    # -- dataset (dates + raw images); no model weights loaded here --
-    params, dataset = inf.read_data(CONFIG_FILE, validation=VALIDATION)
+    # -- cluster assignments + dates --
+    df = pd.read_parquet(_p("df_clusters.parquet"))
+    df["date"] = pd.to_datetime(df["date"])
 
-    # -- cluster assignments from pre-computed results (no model needed) --
-    F     = torch.load(os.path.join(SAVE_PATH, "F.pt"),     weights_only=False)
-    F_val = torch.load(os.path.join(SAVE_PATH, "F_val.pt"), weights_only=False)
+    # -- prototype images (top-N per cluster) and metadata --
+    top_data   = torch.load(_p("top_samples.pt"), weights_only=False)
+    var_stats  = top_data["var_stats"]
+    vars_names = top_data["vars_names"]
+    nvars      = len(vars_names)
 
-    cluster_prob, cluster_id = torch.max(F,     dim=1)
-    val_prob,     val_id     = torch.max(F_val, dim=1)
-    n_train = len(dataset.time)
+    # -- pre-computed quantile arrays for Q-Q plots --
+    quantiles = torch.load(_p("quantiles.pt"), weights_only=False)
 
-    # -- raw train images for visualisation (original spatial size, no transform) --
-    # Val images were already cropped to 128×128 by the transform in read_data,
-    # so their spatial size differs from train. We only use train images for
-    # prototype / QQ plots (those plots already filter to sample_type == 'train').
-    train_imgs_np = dataset.imgs.numpy()  # (N_train, nvars, H, W) – original scale
+    # -- params (for N_PROTO) --
+    import yaml
+    with open(_p("params.yaml")) as f:
+        params = yaml.safe_load(f)
+    N_PROTO = params["criterion"]["num_proto"]
 
-    df = pd.concat([
-        pd.DataFrame({
-            "cluster_id":   cluster_id.cpu().numpy(),
-            "cluster_prob": cluster_prob.cpu().numpy(),
-            "sample_type":  "train",
-            "date":         dataset.time,
-            "combined_idx": np.arange(n_train),        # indexes into train_imgs_np
-        }),
-        pd.DataFrame({
-            "cluster_id":   val_id.cpu().numpy(),
-            "cluster_prob": val_prob.cpu().numpy(),
-            "sample_type":  "val",
-            "date":         dataset.val_time,
-            "combined_idx": np.full(len(dataset.val_time), -1, dtype=int),  # not used
-        }),
-    ]).sort_values("date").reset_index(drop=True)
+    # -- ENSO index --
+    oni_index = read_enso_data(path=_p("oni_index.xlsx"))
 
+    # -- seasonal grouping --
     df, grupos = compute_seasonal_groups(df)
 
-    oni_index = read_enso_data()
     df["date_period"] = df["date"].dt.to_period("M")
     df_el_nino = df.merge(oni_index, left_on="date_period", right_index=True, how="left")
 
-    nvars = train_imgs_np.shape[1]
-    var_stats = {
-        v: (float(train_imgs_np[:, v].min()), float(train_imgs_np[:, v].max()))
-        for v in range(nvars)
-    }
-    vars_names = params["data"]["surf_vars"]
-    N_PROTO = params["criterion"]["num_proto"]
-
     return {
-        "df": df,
-        "df_el_nino": df_el_nino,
-        "oni_index": oni_index,
-        "combined_dataset": train_imgs_np,  # (N_train, nvars, H, W) numpy – train only
-        "grupos": grupos,
-        "var_stats": var_stats,
-        "vars_names": vars_names,
-        "N_PROTO": N_PROTO,
-        "nvars": nvars,
+        "df":          df,
+        "df_el_nino":  df_el_nino,
+        "oni_index":   oni_index,
+        "top_data":    top_data,    # {images: {cid: tensor}, var_stats, vars_names, top_n}
+        "quantiles":   quantiles,   # {q, global: {var: array}, clusters: {cid: {var: array}}}
+        "grupos":      grupos,
+        "var_stats":   var_stats,
+        "vars_names":  vars_names,
+        "N_PROTO":     N_PROTO,
+        "nvars":       nvars,
     }
 
 
@@ -240,29 +219,24 @@ def fig_monthly_frequency_plotly(selected_clusters: tuple, title: str = "Monthly
 
 
 @st.cache_data(show_spinner="Rendering Q-Q plot…")
-def fig_qq_plotly_split(selected_clusters: tuple, n_quantiles: int = 200):
-    """Plotly Q-Q deviation with one subplot per variable (Tmin | Tmax)."""
+def fig_qq_plotly_split(selected_clusters: tuple, **_):
+    """Plotly Q-Q deviation with one subplot per variable (Tmin | Tmax).
+    Uses pre-computed quantiles from app_data/quantiles.pt.
+    """
     d = load_app_data()
-    df = d["df"]
-    combined = d["combined_dataset"]
+    quant  = d["quantiles"]
     vars_names = d["vars_names"]
-    nvars = d["nvars"]
-    df_train = df[df["sample_type"] == "train"]
+    nvars  = d["nvars"]
+    q      = quant["q"]
 
-    q = np.linspace(0.01, 0.99, n_quantiles)
-
-    fig = make_subplots(
-        rows=1, cols=nvars,
-        subplot_titles=vars_names,
-        shared_yaxes=True,
-    )
+    fig = make_subplots(rows=1, cols=nvars, subplot_titles=vars_names, shared_yaxes=True)
     for var in range(nvars):
-        global_q = np.quantile(combined[:, var].ravel(), q)
+        global_q = quant["global"][var]
         for cid in selected_clusters:
-            idx = df_train[df_train["cluster_id"] == cid]["combined_idx"].values
-            if len(idx) == 0:
+            cq = quant["clusters"].get(cid, {}).get(var)
+            if cq is None or np.all(np.isnan(cq)):
                 continue
-            delta = np.quantile(combined[idx, var].ravel(), q) - global_q
+            delta = cq - global_q
             fig.add_trace(
                 go.Scatter(
                     x=q, y=delta,
@@ -281,35 +255,31 @@ def fig_qq_plotly_split(selected_clusters: tuple, n_quantiles: int = 200):
     fig.add_hline(y=0, line_dash="dash", line_color="black", line_width=1, opacity=0.5)
     fig.update_layout(
         title="Q-Q Deviation from Global Distribution (by variable)",
-        legend_title="Cluster",
-        height=460,
-        hovermode="x",
-        margin=dict(t=60, b=40),
+        legend_title="Cluster", height=460, hovermode="x", margin=dict(t=60, b=40),
     )
     return fig
 
 
 @st.cache_data(show_spinner="Rendering Q-Q plot…")
-def fig_qq_plotly_combined(selected_clusters: tuple, subtitle: str = "", n_quantiles: int = 200):
-    """Plotly Q-Q deviation with Tmin + Tmax in one plot (different dash per variable)."""
+def fig_qq_plotly_combined(selected_clusters: tuple, subtitle: str = "", **_):
+    """Plotly Q-Q deviation with Tmin + Tmax in one plot (different dash per variable).
+    Uses pre-computed quantiles from app_data/quantiles.pt.
+    """
     d = load_app_data()
-    df = d["df"]
-    combined = d["combined_dataset"]
+    quant      = d["quantiles"]
     vars_names = d["vars_names"]
-    nvars = d["nvars"]
-    df_train = df[df["sample_type"] == "train"]
-
-    q = np.linspace(0.01, 0.99, n_quantiles)
+    nvars      = d["nvars"]
+    q          = quant["q"]
 
     fig = go.Figure()
     for var in range(nvars):
-        global_q = np.quantile(combined[:, var].ravel(), q)
+        global_q = quant["global"][var]
         dash = _VAR_DASH[var % len(_VAR_DASH)]
         for cid in selected_clusters:
-            idx = df_train[df_train["cluster_id"] == cid]["combined_idx"].values
-            if len(idx) == 0:
+            cq = quant["clusters"].get(cid, {}).get(var)
+            if cq is None or np.all(np.isnan(cq)):
                 continue
-            delta = np.quantile(combined[idx, var].ravel(), q) - global_q
+            delta = cq - global_q
             fig.add_trace(go.Scatter(
                 x=q, y=delta,
                 name=f"C{cid} – {vars_names[var]}",
@@ -324,12 +294,8 @@ def fig_qq_plotly_combined(selected_clusters: tuple, subtitle: str = "", n_quant
         title += f" — {subtitle}"
     fig.add_hline(y=0, line_dash="dash", line_color="black", line_width=1, opacity=0.5)
     fig.update_layout(
-        title=title,
-        xaxis_title="Quantile",
-        yaxis_title="Δ Quantile vs Global (°C)",
-        legend_title="Cluster – Variable",
-        height=460,
-        hovermode="x",
+        title=title, xaxis_title="Quantile", yaxis_title="Δ Quantile vs Global (°C)",
+        legend_title="Cluster – Variable", height=460, hovermode="x",
         margin=dict(t=60, b=40),
     )
     return fig
@@ -341,59 +307,55 @@ def fig_qq_plotly_combined(selected_clusters: tuple, subtitle: str = "", n_quant
 
 @st.cache_data(show_spinner="Rendering cluster prototypes…")
 def fig_cluster_prototypes(selected_clusters: tuple, top: int = 5):
-    """Exact layout match to plot_cluster_prototypes() in notebooks/analysis.ipynb."""
-    d = load_app_data()
-    df = d["df"]
-    combined = d["combined_dataset"]   # (N_train, nvars, H, W) raw train images
-    var_stats = d["var_stats"]
+    """Exact layout match to plot_cluster_prototypes() in notebooks/analysis.ipynb.
+    Images come from app_data/top_samples.pt (pre-computed, no NetCDF needed).
+    """
+    d          = load_app_data()
+    top_data   = d["top_data"]
+    var_stats  = d["var_stats"]
     vars_names = d["vars_names"]
-    nvars = d["nvars"]
+    nvars      = d["nvars"]
+    images     = top_data["images"]   # {cid: tensor(k, nvars, H, W)}
 
     clusters = list(selected_clusters)
-    n_cols = len(clusters)
-    n_rows = top * nvars
+    n_cols   = len(clusters)
+    n_rows   = top * nvars
 
-    # Scale figsize proportionally to the notebook's (40, 15) for 30 clusters
     fig_w = max(6, 40 * n_cols / 30)
     fig, axes = plt.subplots(n_rows, n_cols, figsize=(fig_w, 15))
     plt.subplots_adjust(hspace=0.4, wspace=0.1)
 
-    # Ensure axes is always 2-D
     if n_cols == 1:
         axes = axes.reshape(-1, 1)
     if n_rows == 1:
         axes = axes.reshape(1, -1)
 
     for col_idx, cid in enumerate(clusters):
-        top_samples = (
-            df[(df["cluster_id"] == cid) & (df["sample_type"] == "train")]
-            .nlargest(top, "cluster_prob")
-        )
-        for s_idx, im_index in enumerate(top_samples.index):
-            img = combined[df.loc[im_index, "combined_idx"]]
+        imgs = images.get(cid)
+        if imgs is None:
+            continue
+        n_show = min(top, len(imgs))
+        for s_idx in range(n_show):
+            img = imgs[s_idx]   # tensor(nvars, H, W)
             for var in range(nvars):
                 ax = axes[s_idx * nvars + var, col_idx]
                 vmin, vmax = var_stats[var]
-                ax.imshow(img[var], cmap="coolwarm", vmin=vmin, vmax=vmax,
+                ax.imshow(img[var].numpy(), cmap="coolwarm", vmin=vmin, vmax=vmax,
                           aspect="auto")
-                # Title only on the very first cell of each cluster column
                 if s_idx * nvars + var == 0:
                     ax.set_title(f"Cluster {cid}", fontsize=10, fontweight="bold")
-                # Y-label only on the leftmost column, matching notebook format
                 if col_idx == 0:
                     ax.set_ylabel(
                         f"S{s_idx + 1}\n{vars_names[var]}",
                         rotation=0, labelpad=25, va="center", fontsize=8,
                     )
 
-    # Tick / spine cleanup (identical to notebook)
     for ax in axes.flatten():
         ax.set_xticks([])
         ax.set_yticks([])
         for sp in ax.spines.values():
             sp.set_visible(False)
 
-    # Horizontal dashed dividers between samples (identical to notebook)
     for r in range(nvars, n_rows, nvars):
         upper_pos = axes[r - 1, 0].get_position()
         lower_pos = axes[r,     0].get_position()
