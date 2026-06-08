@@ -20,9 +20,15 @@ def read_data(config_file, validation=True):
 
     with open(config_file, 'r') as y_file:
         params = yaml.load(y_file, Loader=yaml.FullLoader)
-    
-    rand_transform = transforms.Compose([
-        transforms.RandomResizedCrop(128, scale=(0.5, 1.0)),
+
+    # Deterministic eval transform: Resize so the short side fits, then CenterCrop.
+    # Replaces RandomResizedCrop so that encoding a given day is reproducible
+    # (otherwise the cached E/F/E_val/F_val tensors and t-SNE/PCA/UMAP plots
+    # change across runs even with a fixed model checkpoint).
+    crop_size = params['data'].get('rand_size', 128)
+    val_transform = transforms.Compose([
+        transforms.Resize(int(crop_size / 0.875)),
+        transforms.CenterCrop(crop_size),
         transforms.Normalize(
             params['data']['norm_means'], #'Tmin', 'Tmax',
             params['data']['norm_stds'])
@@ -30,18 +36,19 @@ def read_data(config_file, validation=True):
 
 
     (unsupervised_loader, unsupervised_sampler) = init_data(
-        transform=rand_transform,
+        transform=val_transform,
         batch_size=8,
         surf_vars=params['data']['surf_vars'],
         static_vars=params['data']['static_vars'],
         lat_lim=params['data']['lat_limit'], lon_lim=params['data']['lon_limit'],
         split_val = validation,
+        data_source= params['data']['data_source']
     )
-    
+
     if validation:
-        transformed_imgs = torch.stack([rand_transform(img) for img in unsupervised_loader.dataset.validation_imgs])
+        transformed_imgs = torch.stack([val_transform(img) for img in unsupervised_loader.dataset.validation_imgs])
         unsupervised_loader.dataset.validation_imgs = transformed_imgs
-    
+
     return params, unsupervised_loader.dataset
 
 def load_model(params,model_suffix=None):

@@ -33,17 +33,27 @@ def init_data(
     drop_last=True,
     dataset_samples=None,
     adj_prep_balance=True,
-    split_val=False
+    split_val=False,
+    val_years=(2023, 2024, 2025),
+    data_source='era5'
 ):
-    
-    dataset = BrazilWeatherDataset( transform=transform,
-                                    surf_vars=surf_vars,
-                                    static_vars=static_vars,
-                                    lat_lim=lat_lim, lon_lim=lon_lim,
-                                    n_samples=dataset_samples,
-                                    adj_prep_balance=adj_prep_balance,
-                                    split_val=split_val)
-    
+
+    if data_source == 'era5':
+        dataset = Era5Dataset(transform=transform, surf_vars=surf_vars,
+                              lat_lim=lat_lim, lon_lim=lon_lim,
+                              split_val=split_val, val_years=val_years,
+                              return_time_period=True)
+
+    else:
+        dataset = BrazilWeatherDataset( transform=transform,
+                                        surf_vars=surf_vars,
+                                        static_vars=static_vars,
+                                        lat_lim=lat_lim, lon_lim=lon_lim,
+                                        n_samples=dataset_samples,
+                                        adj_prep_balance=adj_prep_balance,
+                                        split_val=split_val,
+                                        val_years=val_years)
+        
     dist_sampler = torch.utils.data.distributed.DistributedSampler(
         dataset=dataset,
         num_replicas=world_size,
@@ -131,20 +141,22 @@ class MultiViewTransform(object):
 class BrazilWeatherDataset(torch.utils.data.Dataset):
     def __init__(self, transform, surf_vars, static_vars=None, return_patches=False,
                  patch_size=40, patch_stride=20, lat_lim=None, lon_lim=None,n_samples=None,adj_prep_balance=True,split_val=False,
+                 val_years=(1980, 2000),
                  return_time_period=False):
-        
+
         self.transform = transform
 
         self.imgs, self.validation_imgs = self.load_images(surf_vars, static_vars, return_patches=return_patches,
                                      patch_size=patch_size, patch_stride=patch_stride,
-                                     lat_lim=lat_lim, lon_lim=lon_lim,n_samples=n_samples,adj_prep_balance=adj_prep_balance,split_val=split_val)
+                                     lat_lim=lat_lim, lon_lim=lon_lim,n_samples=n_samples,adj_prep_balance=adj_prep_balance,
+                                     split_val=split_val, val_years=tuple(val_years))
 
         self.return_time_period = return_time_period
 
-    def load_images(self, surf_vars, static_vars, 
+    def load_images(self, surf_vars, static_vars,
                     return_patches,patch_size, patch_stride,
                     lat_lim, lon_lim,n_samples,
-                    adj_prep_balance,split_val):
+                    adj_prep_balance,split_val,val_years):
 
         surf_vars_values, time, mask = load_brasil_surf_var(surf_vars,lat_lim=lat_lim,lon_lim=lon_lim,n_samples=n_samples) # ['Tmax','Tmin','pr']
     
@@ -173,10 +185,11 @@ class BrazilWeatherDataset(torch.utils.data.Dataset):
         else:
             
             if split_val:
-                
+
                 times_index = pd.to_datetime(time)
-                val_indices = np.where(times_index.year.isin([1980, 2000]))[0]
-                train_indices = np.where(~times_index.year.isin([1980, 2000]))[0]
+                val_mask = times_index.year.isin(list(val_years))
+                val_indices = np.where(val_mask)[0]
+                train_indices = np.where(~val_mask)[0]
 
                 validation = x_surf[val_indices].float()
                 x_surf = x_surf[train_indices]
@@ -227,4 +240,78 @@ class BrazilWeatherDataset(torch.utils.data.Dataset):
 
     def __len__(self):
         return self.imgs.shape[0]
-    
+
+
+class Era5Dataset(torch.utils.data.Dataset):
+    """ERA5 dataset that loads hourly mx2t / mn2t and aggregates to daily extremes.
+    """
+
+    # Per-variable hourly -> daily aggregator. mx2t = daily max, mn2t = daily min.
+    DAILY_AGG = {'mx2t': 'max', 'mn2t': 'min'}
+
+    def __init__(self, transform, data_path="../data/era5/*.nc",
+                 surf_vars=('mx2t', 'mn2t'),
+                 lat_lim=None, lon_lim=None,
+                 split_val=False,
+                 val_years=(2010, 2015,2023),
+                 return_time_period=False):
+        self.transform = transform
+        self.return_time_period = return_time_period
+        self.imgs, self.validation_imgs = self.load_images(
+            data_path, list(surf_vars), lat_lim, lon_lim,
+            split_val=split_val, val_years=tuple(val_years),
+        )
+
+    def load_images(self, data_path, surf_vars, lat_lim, lon_lim,
+                    split_val, val_years):
+        import xarray as xr  # local import: keep optional at module level
+
+        ds = xr.open_mfdataset(data_path, concat_dim="valid_time", combine='nested')
+
+        if lat_lim is not None and lon_lim is not None:
+            lat_min, lat_max = min(lat_lim), max(lat_lim)
+            lon_min, lon_max = min(lon_lim), max(lon_lim)
+            # ERA5 latitude is typically stored in descending order.
+            lat_descending = ds.latitude.values[0] > ds.latitude.values[-1]
+            lat_slice = slice(lat_max, lat_min) if lat_descending else slice(lat_min, lat_max)
+            ds = ds.sel(latitude=lat_slice, longitude=slice(lon_min, lon_max))
+
+        daily_arrays = []
+        time_index = None
+        for var in surf_vars:
+            agg = self.DAILY_AGG.get(var, 'mean')
+            resampled = ds[var].resample(valid_time='1D')
+            da_daily = getattr(resampled, agg)()
+            if time_index is None:
+                time_index = da_daily['valid_time'].values
+            daily_arrays.append(torch.from_numpy(da_daily.values))
+
+        x_surf = torch.stack(daily_arrays, dim=1).float()  # (T, V, H, W)
+        times_index = pd.to_datetime(time_index)
+
+        if split_val:
+            val_mask = times_index.year.isin(list(val_years))
+            val_indices = np.where(val_mask)[0]
+            train_indices = np.where(~val_mask)[0]
+
+            validation = x_surf[val_indices]
+            x_surf = x_surf[train_indices]
+
+            self.time = times_index[train_indices]
+            self.val_time = times_index[val_indices]
+        else:
+            validation = None
+            self.time = times_index
+
+        return x_surf, validation
+
+    def __getitem__(self, index):
+        cimg = self.imgs[index]
+        timg = self.transform(cimg) if self.transform is not None else cimg
+
+        if self.return_time_period:
+            return timg, torch.tensor(self.time[index].to_period('D').ordinal)
+        return timg, torch.tensor(-1)
+
+    def __len__(self):
+        return self.imgs.shape[0]

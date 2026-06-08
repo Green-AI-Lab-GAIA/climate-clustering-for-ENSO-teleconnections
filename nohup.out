@@ -1,0 +1,171 @@
+INFO:root:called-params configs/temp_era.yaml
+INFO:root:loaded params...
+{   'criterion': {   'batch_size': 512,
+                     'ent_weight': 0.0,
+                     'final_sharpen': 0.25,
+                     'me_max': True,
+                     'memax_weight': 1.0,
+                     'num_proto': 30,
+                     'start_sharpen': 0.25,
+                     'temperature': 0.1,
+                     'use_ent': False,
+                     'use_sinkhorn': True},
+    'data': {   'data_source': 'era5',
+                'focal_size': 64,
+                'focal_views': 10,
+                'image_folder': None,
+                'label_smoothing': 0.0,
+                'lat_limit': [-18, 5.5],
+                'lon_limit': [-74, -44],
+                'norm_means': [294.531, 302.0298],
+                'norm_stds': [4.3696, 4.1115],
+                'num_workers': 10,
+                'patch_drop': 0.15,
+                'pin_mem': True,
+                'rand_size': 128,
+                'rand_views': 1,
+                'root_path': None,
+                'split_val': True,
+                'static_vars': None,
+                'surf_vars': ['mn2t', 'mx2t'],
+                'val_years': [2023, 2024, 2025]},
+    'logging': {   'folder': 'checkpoint/temperature-era-amazonia/',
+                   'write_tag': 'temperature-era-amazonia'},
+    'meta': {   'bottleneck': 1,
+                'copy_data': False,
+                'drop_path_rate': 0.0,
+                'hidden_dim': 2048,
+                'load_checkpoint': False,
+                'model_name': 'deit_small_temperature',
+                'output_dim': 128,
+                'read_checkpoint': None,
+                'use_bn': True,
+                'use_fp16': False,
+                'use_pred_head': False},
+    'optimization': {   'clip_grad': 3.0,
+                        'epochs': 300,
+                        'final_lr': 1e-06,
+                        'final_weight_decay': 0.4,
+                        'lr': 0.001,
+                        'start_lr': 0.0002,
+                        'val_patience': 10,
+                        'warmup': 15,
+                        'weight_decay': 0.04}}
+INFO:root:Running... (rank: 0/1)
+INFO:root:Initialized (rank/world-size) 0/1
+INFO:root:VisionTransformer(
+  (patch_embed): PatchEmbed(
+    (proj): Conv2d(2, 384, kernel_size=(16, 16), stride=(16, 16))
+  )
+  (pos_drop): Dropout(p=0.0, inplace=False)
+  (blocks): ModuleList(
+    (0-11): 12 x Block(
+      (norm1): LayerNorm((384,), eps=1e-06, elementwise_affine=True)
+      (attn): Attention(
+        (qkv): Linear(in_features=384, out_features=1152, bias=True)
+        (attn_drop): Dropout(p=0.0, inplace=False)
+        (proj): Linear(in_features=384, out_features=384, bias=True)
+        (proj_drop): Dropout(p=0.0, inplace=False)
+      )
+      (drop_path): Identity()
+      (norm2): LayerNorm((384,), eps=1e-06, elementwise_affine=True)
+      (mlp): MLP(
+        (fc1): Linear(in_features=384, out_features=1536, bias=True)
+        (act): GELU(approximate='none')
+        (fc2): Linear(in_features=1536, out_features=384, bias=True)
+        (drop): Dropout(p=0.0, inplace=False)
+      )
+    )
+  )
+  (norm): LayerNorm((384,), eps=1e-06, elementwise_affine=True)
+  (fc): Sequential(
+    (fc1): Linear(in_features=384, out_features=2048, bias=True)
+    (bn1): BatchNorm1d(2048, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    (gelu1): GELU(approximate='none')
+    (fc2): Linear(in_features=2048, out_features=2048, bias=True)
+    (bn2): BatchNorm1d(2048, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    (gelu2): GELU(approximate='none')
+    (fc3): Linear(in_features=2048, out_features=128, bias=True)
+  )
+)
+INFO:root:data loader created
+INFO:root:iterations per epoch: 30
+INFO:root:validation set size: 1096
+INFO:root:Created prototypes: torch.Size([30, 128])
+INFO:root:Requires grad: True
+INFO:root:Using AdamW
+INFO:root:Epoch 1
+terminate called without an active exception
+terminate called without an active exception
+terminate called without an active exception
+terminate called without an active exception
+terminate called without an active exception
+Exception ignored in: <function _MultiProcessingDataLoaderIter.__del__ at 0x7344c4fb48b0>
+Traceback (most recent call last):
+  File "/home/livia/Documentos/Projetos/climate-clustering/.venv/lib/python3.10/site-packages/torch/utils/data/dataloader.py", line 1604, in __del__
+    self._shutdown_workers()
+  File "/home/livia/Documentos/Projetos/climate-clustering/.venv/lib/python3.10/site-packages/torch/utils/data/dataloader.py", line 1568, in _shutdown_workers
+    w.join(timeout=_utils.MP_STATUS_CHECK_INTERVAL)
+  File "/home/livia/.local/share/uv/python/cpython-3.10.12-linux-x86_64-gnu/lib/python3.10/multiprocessing/process.py", line 149, in join
+    res = self._popen.wait(timeout)
+  File "/home/livia/.local/share/uv/python/cpython-3.10.12-linux-x86_64-gnu/lib/python3.10/multiprocessing/popen_fork.py", line 40, in wait
+    if not wait([self.sentinel], timeout):
+  File "/home/livia/.local/share/uv/python/cpython-3.10.12-linux-x86_64-gnu/lib/python3.10/multiprocessing/connection.py", line 931, in wait
+    ready = selector.select(timeout)
+  File "/home/livia/.local/share/uv/python/cpython-3.10.12-linux-x86_64-gnu/lib/python3.10/selectors.py", line 416, in select
+    fd_event_list = self._selector.poll(timeout)
+  File "/home/livia/Documentos/Projetos/climate-clustering/.venv/lib/python3.10/site-packages/torch/utils/data/_utils/signal_handling.py", line 73, in handler
+    _error_if_any_worker_fails()
+RuntimeError: DataLoader worker (pid 1665960) is killed by signal: Aborted. 
+[rank0]:[W527 23:06:34.200667853 ProcessGroupNCCL.cpp:1250] Warning: WARNING: process group has NOT been destroyed before we destruct ProcessGroupNCCL. On normal program exit, the application should call destroy_process_group to ensure that any pending NCCL operations have finished in this process. In rare cases this process can exit before this point and block the progress of another member of the process group. This constraint has always been present,  but this warning has only been added since PyTorch 2.4 (function operator())
+Traceback (most recent call last):
+  File "/home/livia/Documentos/Projetos/climate-clustering/main_msn.py", line 67, in <module>
+    mp.spawn(
+  File "/home/livia/Documentos/Projetos/climate-clustering/.venv/lib/python3.10/site-packages/torch/multiprocessing/spawn.py", line 328, in spawn
+    return start_processes(fn, args, nprocs, join, daemon, start_method="spawn")
+  File "/home/livia/Documentos/Projetos/climate-clustering/.venv/lib/python3.10/site-packages/torch/multiprocessing/spawn.py", line 284, in start_processes
+    while not context.join():
+  File "/home/livia/Documentos/Projetos/climate-clustering/.venv/lib/python3.10/site-packages/torch/multiprocessing/spawn.py", line 203, in join
+    raise ProcessRaisedException(msg, error_index, failed_process.pid)
+torch.multiprocessing.spawn.ProcessRaisedException: 
+
+-- Process 0 terminated with the following error:
+Traceback (most recent call last):
+  File "/home/livia/Documentos/Projetos/climate-clustering/.venv/lib/python3.10/site-packages/torch/multiprocessing/spawn.py", line 90, in _wrap
+    fn(i, *args)
+  File "/home/livia/Documentos/Projetos/climate-clustering/main_msn.py", line 59, in process_main
+    return msn(params)
+  File "/home/livia/Documentos/Projetos/climate-clustering/src/msn_train.py", line 490, in main
+    _logs, _new_lr, _new_wd, grad_stats), etime = gpu_timer(train_step)
+  File "/home/livia/Documentos/Projetos/climate-clustering/src/utils.py", line 26, in gpu_timer
+    result = closure()
+  File "/home/livia/Documentos/Projetos/climate-clustering/src/msn_train.py", line 444, in train_step
+    h, z = encoder(imgs[1:], return_before_head=True, patch_drop=patch_drop)
+  File "/home/livia/Documentos/Projetos/climate-clustering/.venv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1736, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/home/livia/Documentos/Projetos/climate-clustering/.venv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1747, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/home/livia/Documentos/Projetos/climate-clustering/src/deit.py", line 222, in forward
+    _h = self.forward_features(torch.cat(x[start_idx:end_idx]), patch_drop)
+  File "/home/livia/Documentos/Projetos/climate-clustering/src/deit.py", line 258, in forward_features
+    x = blk(x)
+  File "/home/livia/Documentos/Projetos/climate-clustering/.venv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1736, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/home/livia/Documentos/Projetos/climate-clustering/.venv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1747, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/home/livia/Documentos/Projetos/climate-clustering/src/deit.py", line 113, in forward
+    x = x + self.drop_path(self.mlp(self.norm2(x)))
+  File "/home/livia/Documentos/Projetos/climate-clustering/.venv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1736, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/home/livia/Documentos/Projetos/climate-clustering/.venv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1747, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/home/livia/Documentos/Projetos/climate-clustering/src/deit.py", line 62, in forward
+    x = self.act(x)
+  File "/home/livia/Documentos/Projetos/climate-clustering/.venv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1736, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/home/livia/Documentos/Projetos/climate-clustering/.venv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1747, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/home/livia/Documentos/Projetos/climate-clustering/.venv/lib/python3.10/site-packages/torch/nn/modules/activation.py", line 734, in forward
+    return F.gelu(input, approximate=self.approximate)
+torch.OutOfMemoryError: CUDA out of memory. Tried to allocate 510.00 MiB. GPU 0 has a total capacity of 15.60 GiB of which 365.25 MiB is free. Including non-PyTorch memory, this process has 15.14 GiB memory in use. Of the allocated memory 14.76 GiB is allocated by PyTorch, and 190.76 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://pytorch.org/docs/stable/notes/cuda.html#environment-variables)
+

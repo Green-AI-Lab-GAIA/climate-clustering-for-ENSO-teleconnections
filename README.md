@@ -122,6 +122,23 @@ Open `notebooks/analysis.ipynb` to:
 - Map clusters back to geographical coordinates
 - Correlate cluster time series with the ONI index
 
+### Interactive Web App (Streamlit)
+
+An interactive version of the notebook analysis is available in `streamlit_app.py`.
+
+Run:
+
+```bash
+streamlit run streamlit_app.py
+```
+
+Main features:
+- Interactive t-SNE exploration with metadata hover
+- Cluster prototype explorer
+- Seasonal and ENSO anomaly dashboards
+- Lagged ENSO heatmaps with **cluster aggregation** option
+- Temporal cluster evolution with optional aggregated cluster signal
+
 ## Dependencies
 
 Install with:

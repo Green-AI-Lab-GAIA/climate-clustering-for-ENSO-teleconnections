@@ -119,7 +119,8 @@ def main(args):
     lat_lim = args['data']['lat_limit']
     lon_lim = args['data']['lon_limit']
     split_val = args['data']['split_val']
-    
+    val_years = args['data'].get('val_years', (2023, 2024, 2025))
+    data_source= args['data']['data_source']
     # --
 
     # -- OPTIMIZATION
@@ -131,6 +132,7 @@ def main(args):
     start_lr = args['optimization']['start_lr']
     lr = args['optimization']['lr']
     final_lr = args['optimization']['final_lr']
+    val_patience = args['optimization'].get('val_patience', 0)  # 0 disables early stopping
 
     # -- LOGGING
     folder = args['logging']['folder']
@@ -168,6 +170,14 @@ def main(args):
                            ('%.5f', 'me_max'),
                            ('%.5f', 'ent'),
                            ('%d', 'time (ms)'))
+
+    val_log_file = os.path.join(folder, f'{tag}_val_r{rank}.csv')
+    val_csv_logger = CSVLogger(val_log_file,
+                               ('%d', 'epoch'),
+                               ('%.5f', 'val_loss'),
+                               ('%.5f', 'val_msn'),
+                               ('%.5f', 'val_me_max'),
+                               ('%.5f', 'val_ent'))
 
     # -- init model
     encoder = init_model(
@@ -224,10 +234,20 @@ def main(args):
         #  image_folder=image_folder,
         #  training=True,
         #  copy_data=copy_data,
-         split_val=split_val
+        split_val=split_val,
+        val_years=val_years,
+        data_source=data_source
          )
     ipe = len(unsupervised_loader)
     logger.info(f'iterations per epoch: {ipe}')
+
+    # -- capture validation set (None when split_val=False)
+    val_imgs = getattr(unsupervised_loader.dataset, 'validation_imgs', None)
+    if val_imgs is not None and len(val_imgs) > 0:
+        logger.info(f'validation set size: {val_imgs.shape[0]}')
+    else:
+        val_imgs = None
+        logger.info('no validation set (split_val=False or empty)')
 
     # -- make prototypes
     prototypes, proto_labels = None, None
@@ -289,13 +309,12 @@ def main(args):
             next(momentum_scheduler)
             next(sharpen_scheduler)
 
-    def save_checkpoint(epoch):
+    best_path = os.path.join(folder, f'{tag}-best.pth.tar')
+    best_val_loss = float('inf')
+    epochs_since_improvement = 0
 
-        if target_encoder is not None:
-            target_encoder_state_dict = target_encoder.state_dict()
-        else:
-            target_encoder_state_dict = None
-
+    def _build_save_dict(epoch, extra=None):
+        target_encoder_state_dict = target_encoder.state_dict() if target_encoder is not None else None
         save_dict = {
             'encoder': encoder.state_dict(),
             'opt': optimizer.state_dict(),
@@ -308,11 +327,85 @@ def main(args):
             'lr': lr,
             'temperature': temperature
         }
+        if extra:
+            save_dict.update(extra)
+        return save_dict
+
+    def save_checkpoint(epoch):
+        save_dict = _build_save_dict(epoch)
         if rank == 0:
             torch.save(save_dict, latest_path)
             if (epoch + 1) % checkpoint_freq == 0 \
                     or (epoch + 1) % 10 == 0 and epoch < checkpoint_freq:
                 torch.save(save_dict, save_path.format(epoch=f'{epoch + 1}'))
+
+    def save_best_checkpoint(epoch, val_loss):
+        save_dict = _build_save_dict(epoch, extra={'val_loss': val_loss})
+        if rank == 0:
+            torch.save(save_dict, best_path)
+
+    def compute_val_loss():
+        """Run MSN loss over the held-out year set with fixed-seed augmentations.
+
+        Reseeds RNG to _GLOBAL_SEED only for the duration of this pass so that
+        the same augmentations are sampled every epoch — making the val loss
+        trend reflect model changes, not augmentation noise. Training RNG state
+        is snapshotted and restored to keep training reproducibility unchanged.
+        """
+        if val_imgs is None:
+            return None
+
+        encoder.eval()
+        if target_encoder is not None:
+            target_encoder.eval()
+
+        cpu_state = torch.get_rng_state()
+        cuda_state = torch.cuda.get_rng_state(device) if torch.cuda.is_available() else None
+        torch.manual_seed(_GLOBAL_SEED)
+        if torch.cuda.is_available():
+            torch.cuda.manual_seed(_GLOBAL_SEED)
+
+        meters = {k: AverageMeter() for k in ('loss', 'msn', 'me_max', 'ent')}
+
+        try:
+            with torch.no_grad():
+                n = val_imgs.shape[0]
+                for start in range(0, n, batch_size):
+                    end = min(start + batch_size, n)
+                    bs = end - start
+                    sample_views = [transform(val_imgs[i]) for i in range(start, end)]
+                    num_views = len(sample_views[0])
+                    imgs = [torch.stack([sample_views[b][v] for b in range(bs)]).to(device, non_blocking=True)
+                            for v in range(num_views)]
+
+                    h_t, _ = target_encoder(imgs[0], return_before_head=True)
+                    h, z = encoder(imgs[1:], return_before_head=True, patch_drop=patch_drop)
+                    z = z.float()
+                    target_views = h_t.float().detach()
+
+                    (ploss, me_max, ent, _logs, _) = msn(
+                        T=_final_T,
+                        use_sinkhorn=use_sinkhorn,
+                        use_entropy=use_ent,
+                        anchor_views=z,
+                        target_views=target_views,
+                        proto_labels=proto_labels,
+                        prototypes=prototypes)
+                    loss = ploss + memax_weight*me_max + ent_weight*ent
+
+                    meters['loss'].update(float(loss), bs)
+                    meters['msn'].update(float(ploss), bs)
+                    meters['me_max'].update(float(me_max), bs)
+                    meters['ent'].update(float(ent), bs)
+        finally:
+            encoder.train()
+            if target_encoder is not None:
+                target_encoder.train()
+            torch.set_rng_state(cpu_state)
+            if cuda_state is not None:
+                torch.cuda.set_rng_state(cuda_state, device)
+
+        return meters['loss'].avg, meters['msn'].avg, meters['me_max'].avg, meters['ent'].avg
 
     # -- TRAINING LOOP
     for epoch in range(start_epoch, num_epochs):
@@ -443,6 +536,26 @@ def main(args):
         # -- Save Checkpoint after every epoch
         logger.info('avg. loss %.3f' % loss_meter.avg)
         save_checkpoint(epoch+1)
+
+        # -- Validation pass + best-checkpoint tracking + early stopping
+        val_stats = compute_val_loss()
+        if val_stats is not None:
+            val_loss, val_msn, val_memax, val_ent = val_stats
+            logger.info('[epoch %d] val loss: %.3f (msn=%.3f, me_max=%.3f, ent=%.3f)'
+                        % (epoch+1, val_loss, val_msn, val_memax, val_ent))
+            val_csv_logger.log(epoch+1, val_loss, val_msn, val_memax, val_ent)
+            if np.isfinite(val_loss) and val_loss < best_val_loss:
+                best_val_loss = val_loss
+                epochs_since_improvement = 0
+                save_best_checkpoint(epoch+1, val_loss)
+                logger.info('[epoch %d] new best val loss: %.3f -> saved %s'
+                            % (epoch+1, val_loss, best_path))
+            else:
+                epochs_since_improvement += 1
+                if val_patience > 0 and epochs_since_improvement >= val_patience:
+                    logger.info('early stopping at epoch %d (no val improvement for %d epochs; best=%.3f)'
+                                % (epoch+1, val_patience, best_val_loss))
+                    break
 
 
 def load_checkpoint(
