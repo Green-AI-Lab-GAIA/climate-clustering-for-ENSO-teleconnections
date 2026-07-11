@@ -3,7 +3,7 @@ criterion:
   final_sharpen: 0.25
   me_max: true
   memax_weight: 1.0
-  num_proto: 30
+  num_proto: 15
   start_sharpen: 0.25
   temperature: 0.1
   batch_size: 512
@@ -30,8 +30,8 @@ data:
   val_years: [2023, 2024, 2025]
   data_source: era5
 logging:
-  folder: checkpoint/temperature-era-amazonia/
-  write_tag: temperature-era-amazonia
+  folder: checkpoint/temperature-era-amazonia-15/
+  write_tag: temperature-era-amazonia-15
 meta:
   bottleneck: 1
   copy_data: false
@@ -53,4 +53,4 @@ optimization:
   start_lr: 0.0002
   warmup: 15
   weight_decay: 0.04
-  val_patience: 10
+  val_patience: 20

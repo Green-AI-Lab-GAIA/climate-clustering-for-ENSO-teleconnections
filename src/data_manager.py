@@ -310,7 +310,9 @@ class Era5Dataset(torch.utils.data.Dataset):
         timg = self.transform(cimg) if self.transform is not None else cimg
 
         if self.return_time_period:
-            return timg, torch.tensor(self.time[index].to_period('D').ordinal)
+            period = self.time[index].to_period('D')
+            ordinal = period.ordinal if isinstance(period, pd.Period) else period.asi8
+            return timg, torch.tensor(ordinal)
         return timg, torch.tensor(-1)
 
     def __len__(self):

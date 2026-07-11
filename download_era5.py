@@ -9,6 +9,9 @@ if __name__ == "__main__":
     path="../data/temp/" #temporary path
     final_path = "../data/era5/" #save path
 
+    os.makedirs(path, exist_ok=True)
+    os.makedirs(final_path, exist_ok=True)
+
     years_per_download = 1
     start, end = 0, years_per_download
 
