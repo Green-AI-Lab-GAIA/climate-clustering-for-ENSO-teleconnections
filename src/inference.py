@@ -42,7 +42,8 @@ def read_data(config_file, validation=True):
         static_vars=params['data']['static_vars'],
         lat_lim=params['data']['lat_limit'], lon_lim=params['data']['lon_limit'],
         split_val = validation,
-        data_source= params['data']['data_source']
+        data_source= params['data']['data_source'],
+        deseason_standardize=params['data'].get('deseason_standardize', False)
     )
 
     if validation:
@@ -99,19 +100,23 @@ def get_model_results(read_path, validation=False, **kwargs ):
         dataset = kwargs['dataset']
         prototypes = kwargs['prototypes']
 
-        E = torch.empty(0, params['meta']['output_dim']).to("cuda:0")
-        F = torch.empty(0, prototypes.shape[0]).to("cuda:0")
+        # Accumulate in lists and concatenate once: repeatedly torch.cat-ing a
+        # growing tensor per sample is O(N^2) in copies and dominates runtime.
+        E_chunks, F_chunks = [], []
 
         with torch.no_grad():
             for img in tqdm(dataset, desc="Encoding"):
-                
+
                 if not validation: img, _ = img
-                
+
                 img = img.unsqueeze(0).to("cuda:0")
                 enc = encoder(img)
                 enc = torch.nn.functional.normalize(enc)
-                E = torch.cat((E, enc), 0)
-                F = torch.cat((F, enc @ prototypes.T), 0)
+                E_chunks.append(enc)
+                F_chunks.append(enc @ prototypes.T)
+
+        E = torch.cat(E_chunks, 0)
+        F = torch.cat(F_chunks, 0)
 
         os.makedirs(read_path, exist_ok=True)
         torch.save(E, os.path.join(read_path,E_file_name))

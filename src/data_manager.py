@@ -8,6 +8,7 @@
 
 from logging import getLogger
 
+import os
 import torch
 import torchvision.transforms as transforms
 import torchvision
@@ -35,14 +36,16 @@ def init_data(
     adj_prep_balance=True,
     split_val=False,
     val_years=(2023, 2024, 2025),
-    data_source='era5'
+    data_source='era5',
+    deseason_standardize=False
 ):
 
     if data_source == 'era5':
         dataset = Era5Dataset(transform=transform, surf_vars=surf_vars,
                               lat_lim=lat_lim, lon_lim=lon_lim,
                               split_val=split_val, val_years=val_years,
-                              return_time_period=True)
+                              return_time_period=True,
+                              deseason_standardize=deseason_standardize)
 
     else:
         dataset = BrazilWeatherDataset( transform=transform,
@@ -243,51 +246,125 @@ class BrazilWeatherDataset(torch.utils.data.Dataset):
 
 
 class Era5Dataset(torch.utils.data.Dataset):
-    """ERA5 dataset that loads hourly mx2t / mn2t and aggregates to daily extremes.
+    """ERA5 dataset that loads hourly surface variables and aggregates them to daily.
     """
 
-    # Per-variable hourly -> daily aggregator. mx2t = daily max, mn2t = daily min.
-    DAILY_AGG = {'mx2t': 'max', 'mn2t': 'min'}
+    # Per-variable hourly -> daily aggregator. mx2t = daily max, mn2t = daily min,
+    # tp = daily accumulated total.
+    DAILY_AGG = {'mx2t': 'max', 'mn2t': 'min', 'tp': 'sum'}
+
+    # Each variable was downloaded into its own set of yearly files, so a single
+    # '*.nc' glob would concatenate temperature and precipitation files into one
+    # time axis with each variable NaN over the other's files. Read every variable
+    # only from the files that actually contain it.
+    VAR_FILE_GLOB = {'mx2t': '*min-max-temp*.nc',
+                     'mn2t': '*min-max-temp*.nc',
+                     'tp': '*total-prep*.nc'}
+
+    # ERA5 total precipitation is hourly accumulation in metres; store daily mm.
+    VAR_SCALE = {'tp': 1000.0}
 
     def __init__(self, transform, data_path="../data/era5/*.nc",
                  surf_vars=('mx2t', 'mn2t'),
                  lat_lim=None, lon_lim=None,
                  split_val=False,
                  val_years=(2010, 2015,2023),
-                 return_time_period=False):
+                 return_time_period=False,
+                 deseason_standardize=False):
         self.transform = transform
         self.return_time_period = return_time_period
+        self.deseason_standardize = deseason_standardize
         self.imgs, self.validation_imgs = self.load_images(
             data_path, list(surf_vars), lat_lim, lon_lim,
             split_val=split_val, val_years=tuple(val_years),
         )
 
+    def _resolve_var_files(self, data_path, surf_vars):
+        """Map each variable to the sorted list of files that hold it."""
+        import glob
+        root = os.path.dirname(data_path)
+        var_files = {}
+        for var in surf_vars:
+            pattern = self.VAR_FILE_GLOB.get(var)
+            path = os.path.join(root, pattern) if pattern else data_path
+            files = sorted(glob.glob(path))
+            if not files:
+                raise FileNotFoundError(f'no ERA5 files for {var!r} matching {path}')
+            var_files[var] = files
+        return var_files
+
+    def _daily_cache_path(self, var_files, surf_vars, lat_lim, lon_lim):
+        """Deterministic cache file for the resampled daily tensor.
+
+        Reading + hourly->daily resampling the raw netCDF (tens of GB) is by far
+        the slowest step and it is fully determined by the input files and the
+        spatial crop, so we cache the result keyed on a hash of those inputs.
+        """
+        import hashlib
+        files = sorted({f for fs in var_files.values() for f in fs})
+        sig = [(os.path.basename(f), os.path.getmtime(f), os.path.getsize(f)) for f in files]
+        sig.append((tuple(surf_vars), tuple(lat_lim) if lat_lim else None,
+                    tuple(lon_lim) if lon_lim else None))
+        key = hashlib.md5(repr(sig).encode()).hexdigest()[:16]
+        cache_dir = os.path.join(os.path.dirname(files[0]) if files else '.', '.daily_cache')
+        return os.path.join(cache_dir, f'daily_{key}.pt')
+
+    def _crop(self, ds, lat_lim, lon_lim):
+        if lat_lim is None or lon_lim is None:
+            return ds
+        lat_min, lat_max = min(lat_lim), max(lat_lim)
+        lon_min, lon_max = min(lon_lim), max(lon_lim)
+        # ERA5 latitude is typically stored in descending order.
+        lat_descending = ds.latitude.values[0] > ds.latitude.values[-1]
+        lat_slice = slice(lat_max, lat_min) if lat_descending else slice(lat_min, lat_max)
+        return ds.sel(latitude=lat_slice, longitude=slice(lon_min, lon_max))
+
     def load_images(self, data_path, surf_vars, lat_lim, lon_lim,
                     split_val, val_years):
-        import xarray as xr  # local import: keep optional at module level
+        var_files = self._resolve_var_files(data_path, surf_vars)
+        cache_path = self._daily_cache_path(var_files, surf_vars, lat_lim, lon_lim)
+        if os.path.exists(cache_path):
+            blob = torch.load(cache_path, weights_only=False)
+            x_surf, times_index = blob['x_surf'], blob['times_index']
+            logger.info(f'loaded cached daily tensor from {cache_path}')
+        else:
+            import xarray as xr  # local import: keep optional at module level
 
-        ds = xr.open_mfdataset(data_path, concat_dim="valid_time", combine='nested')
+            # Group the variables that share a file set so each set is opened once.
+            groups = {}
+            for var in surf_vars:
+                groups.setdefault(tuple(var_files[var]), []).append(var)
 
-        if lat_lim is not None and lon_lim is not None:
-            lat_min, lat_max = min(lat_lim), max(lat_lim)
-            lon_min, lon_max = min(lon_lim), max(lon_lim)
-            # ERA5 latitude is typically stored in descending order.
-            lat_descending = ds.latitude.values[0] > ds.latitude.values[-1]
-            lat_slice = slice(lat_max, lat_min) if lat_descending else slice(lat_min, lat_max)
-            ds = ds.sel(latitude=lat_slice, longitude=slice(lon_min, lon_max))
+            daily = {}  # var -> (DatetimeIndex, tensor of shape (T, H, W))
+            for files, group_vars in groups.items():
+                ds = xr.open_mfdataset(list(files), concat_dim="valid_time", combine='nested')
+                ds = self._crop(ds, lat_lim, lon_lim)
 
-        daily_arrays = []
-        time_index = None
-        for var in surf_vars:
-            agg = self.DAILY_AGG.get(var, 'mean')
-            resampled = ds[var].resample(valid_time='1D')
-            da_daily = getattr(resampled, agg)()
-            if time_index is None:
-                time_index = da_daily['valid_time'].values
-            daily_arrays.append(torch.from_numpy(da_daily.values))
+                for var in group_vars:
+                    agg = self.DAILY_AGG.get(var, 'mean')
+                    da_daily = getattr(ds[var].resample(valid_time='1D'), agg)()
+                    values = torch.from_numpy(da_daily.values).float()
+                    values *= self.VAR_SCALE.get(var, 1.0)
+                    daily[var] = (pd.to_datetime(da_daily['valid_time'].values), values)
+                    logger.info(f'resampled {var} to daily ({agg}): {tuple(values.shape)}')
 
-        x_surf = torch.stack(daily_arrays, dim=1).float()  # (T, V, H, W)
-        times_index = pd.to_datetime(time_index)
+            # Variables may cover slightly different periods, so keep the days
+            # every variable has and stack them in the configured order.
+            times_index = daily[surf_vars[0]][0]
+            for var in surf_vars[1:]:
+                times_index = times_index.intersection(daily[var][0])
+            times_index = times_index.sort_values()
+
+            daily_arrays = []
+            for var in surf_vars:
+                var_times, values = daily[var]
+                daily_arrays.append(values[var_times.get_indexer(times_index)])
+
+            x_surf = torch.stack(daily_arrays, dim=1)  # (T, V, H, W)
+
+            os.makedirs(os.path.dirname(cache_path), exist_ok=True)
+            torch.save({'x_surf': x_surf, 'times_index': times_index}, cache_path)
+            logger.info(f'saved daily tensor cache to {cache_path}')
 
         if split_val:
             val_mask = times_index.year.isin(list(val_years))
@@ -303,7 +380,39 @@ class Era5Dataset(torch.utils.data.Dataset):
             validation = None
             self.time = times_index
 
+        if self.deseason_standardize:
+            # Per-calendar-month, per-grid-cell z-score: deseasonalises (removes the
+            # annual cycle) and standardises in one step. Climatology (mean/std) is
+            # estimated on TRAIN days only, then applied to both train and val.
+            mu, sigma = self._monthly_cell_climatology(x_surf, self.time)
+            x_surf = self._apply_monthly_cell_zscore(x_surf, self.time, mu, sigma)
+            if validation is not None:
+                validation = self._apply_monthly_cell_zscore(validation, self.val_time, mu, sigma)
+            logger.info('applied per-month per-cell deseasonalised standardisation (anomalies)')
+
         return x_surf, validation
+
+    @staticmethod
+    def _monthly_cell_climatology(x, times, eps=1e-6):
+        """Return (mu, sigma) tensors of shape (12, V, H, W): per calendar-month,
+        per-cell mean and std estimated over `times`."""
+        months = torch.as_tensor(pd.DatetimeIndex(times).month.values)
+        V, H, W = x.shape[1:]
+        mu = torch.zeros(12, V, H, W)
+        sigma = torch.ones(12, V, H, W)
+        for m in range(1, 13):
+            sel = months == m
+            if sel.sum() == 0:
+                continue
+            xm = x[sel]
+            mu[m - 1] = xm.mean(0)
+            sigma[m - 1] = xm.std(0, unbiased=False).clamp_min(eps)
+        return mu, sigma
+
+    @staticmethod
+    def _apply_monthly_cell_zscore(x, times, mu, sigma):
+        months = torch.as_tensor(pd.DatetimeIndex(times).month.values) - 1
+        return (x - mu[months]) / sigma[months]
 
     def __getitem__(self, index):
         cimg = self.imgs[index]

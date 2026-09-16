@@ -502,6 +502,13 @@ def deit_small_temperature(patch_size=16, **kwargs):
     return model
 
 
+def deit_small_temp_prep(patch_size=16, **kwargs):
+    model = VisionTransformer(
+        patch_size=patch_size, in_chans=3, embed_dim=384, depth=12, num_heads=6, mlp_ratio=4,
+        qkv_bias=True, norm_layer=partial(nn.LayerNorm, eps=1e-6), **kwargs)
+    return model
+
+
 def deit_small_precipitation(patch_size=16, **kwargs):
     model = VisionTransformer(
         patch_size=patch_size, in_chans=1, embed_dim=384, depth=12, num_heads=6, mlp_ratio=4,

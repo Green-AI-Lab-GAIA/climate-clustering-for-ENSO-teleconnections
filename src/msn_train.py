@@ -121,6 +121,7 @@ def main(args):
     split_val = args['data']['split_val']
     val_years = args['data'].get('val_years', (2023, 2024, 2025))
     data_source= args['data']['data_source']
+    deseason_standardize = args['data'].get('deseason_standardize', False)
     # --
 
     # -- OPTIMIZATION
@@ -236,7 +237,8 @@ def main(args):
         #  copy_data=copy_data,
         split_val=split_val,
         val_years=val_years,
-        data_source=data_source
+        data_source=data_source,
+        deseason_standardize=deseason_standardize
          )
     ipe = len(unsupervised_loader)
     logger.info(f'iterations per epoch: {ipe}')

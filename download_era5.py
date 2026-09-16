@@ -8,6 +8,7 @@ if __name__ == "__main__":
     
     path="../data/temp/" #temporary path
     final_path = "../data/era5/" #save path
+    dataset_name = "total-prep" #min-max-temp
 
     os.makedirs(path, exist_ok=True)
     os.makedirs(final_path, exist_ok=True)
@@ -42,11 +43,11 @@ if __name__ == "__main__":
                 "product_type": "reanalysis",
                 "variable":[ 
                             # "2m_temperature",
-                            # "total_precipitation",
+                            "total_precipitation",
                             # "surface_pressure",
                             # "2m_dewpoint_temperature",
-                            "maximum_2m_temperature_since_previous_post_processing",
-                            "minimum_2m_temperature_since_previous_post_processing"
+                            # "maximum_2m_temperature_since_previous_post_processing",
+                            # "minimum_2m_temperature_since_previous_post_processing"
                                 ],
                 "year": cur_years,
                 "month": ["01", "02", "03","04", "05", "06",
@@ -76,7 +77,7 @@ if __name__ == "__main__":
         new_files = [i for i in os.listdir(path) if i.endswith(".nc")]
         for file in new_files:     #rename files 
             # new_name = f"{min(years_to_download)}-{max(years_to_download)}1]-{file.split('-')[-}"
-            new_name = f"{cur_years[0]}-min-max-temp-{file.split('-')[-1]}"
+            new_name = f"{cur_years[0]}-{dataset_name}-{file.split('-')[-1]}"
             os.rename(os.path.join(path, file), os.path.join(path, new_name))
             os.system(f"mv {os.path.join(path, new_name)} {os.path.join(final_path, new_name)}")
             
