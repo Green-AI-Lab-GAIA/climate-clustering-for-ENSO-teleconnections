@@ -1,0 +1,61 @@
+criterion:
+  ent_weight: 0.0
+  final_sharpen: 0.25
+  me_max: true
+  memax_weight: 1.0
+  num_proto: 15
+  start_sharpen: 0.25
+  temperature: 0.1
+  batch_size: 512
+  use_ent: false
+  use_sinkhorn: true
+data:
+  pin_mem: true
+  num_workers: 10
+  image_folder: null
+  label_smoothing: 0.0
+  patch_drop: 0.15
+  rand_size: 128
+  focal_size: 64
+  rand_views: 1
+  focal_views: 10
+  root_path: null
+  # tp = ERA5 total precipitation, accumulated over each day (mm).
+  surf_vars: ['mn2t', 'mx2t', 'tp']
+  static_vars: null
+  lat_limit: [-18, 5.5]
+  lon_limit: [-74, -44]
+  # Deseasonalised + per-cell standardised anomalies (daily). Computed inside the
+  # dataset from TRAIN years only, so the fields are already ~zero-mean/unit-std:
+  # keep the transform's Normalize as identity below.
+  deseason_standardize: true
+  norm_means: [0.0, 0.0, 0.0]
+  norm_stds: [1.0, 1.0, 1.0]
+  split_val: true
+  val_years: [2023, 2024, 2025]
+  data_source: era5
+logging:
+  folder: checkpoint/temp-prep-era-amazonia-15-anom/
+  write_tag: temp-prep-era-amazonia-15-anom
+meta:
+  bottleneck: 1
+  copy_data: false
+  drop_path_rate: 0.0
+  hidden_dim: 2048
+  load_checkpoint: false
+  model_name: deit_small_temp_prep
+  output_dim: 128
+  read_checkpoint: null
+  use_bn: true
+  use_fp16: false
+  use_pred_head: false
+optimization:
+  clip_grad: 3.0
+  epochs: 300
+  final_lr: 1.0e-06
+  final_weight_decay: 0.4
+  lr: 0.001
+  start_lr: 0.0002
+  warmup: 15
+  weight_decay: 0.04
+  val_patience: 20

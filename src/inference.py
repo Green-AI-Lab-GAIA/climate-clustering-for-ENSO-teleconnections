@@ -20,9 +20,15 @@ def read_data(config_file, validation=True):
 
     with open(config_file, 'r') as y_file:
         params = yaml.load(y_file, Loader=yaml.FullLoader)
-    
-    rand_transform = transforms.Compose([
-        transforms.RandomResizedCrop(128, scale=(0.5, 1.0)),
+
+    # Deterministic eval transform: Resize so the short side fits, then CenterCrop.
+    # Replaces RandomResizedCrop so that encoding a given day is reproducible
+    # (otherwise the cached E/F/E_val/F_val tensors and t-SNE/PCA/UMAP plots
+    # change across runs even with a fixed model checkpoint).
+    crop_size = params['data'].get('rand_size', 128)
+    val_transform = transforms.Compose([
+        transforms.Resize(int(crop_size / 0.875)),
+        transforms.CenterCrop(crop_size),
         transforms.Normalize(
             params['data']['norm_means'], #'Tmin', 'Tmax',
             params['data']['norm_stds'])
@@ -30,18 +36,20 @@ def read_data(config_file, validation=True):
 
 
     (unsupervised_loader, unsupervised_sampler) = init_data(
-        transform=rand_transform,
+        transform=val_transform,
         batch_size=8,
         surf_vars=params['data']['surf_vars'],
         static_vars=params['data']['static_vars'],
         lat_lim=params['data']['lat_limit'], lon_lim=params['data']['lon_limit'],
         split_val = validation,
+        data_source= params['data']['data_source'],
+        deseason_standardize=params['data'].get('deseason_standardize', False)
     )
-    
+
     if validation:
-        transformed_imgs = torch.stack([rand_transform(img) for img in unsupervised_loader.dataset.validation_imgs])
+        transformed_imgs = torch.stack([val_transform(img) for img in unsupervised_loader.dataset.validation_imgs])
         unsupervised_loader.dataset.validation_imgs = transformed_imgs
-    
+
     return params, unsupervised_loader.dataset
 
 def load_model(params,model_suffix=None):
@@ -92,19 +100,23 @@ def get_model_results(read_path, validation=False, **kwargs ):
         dataset = kwargs['dataset']
         prototypes = kwargs['prototypes']
 
-        E = torch.empty(0, params['meta']['output_dim']).to("cuda:0")
-        F = torch.empty(0, prototypes.shape[0]).to("cuda:0")
+        # Accumulate in lists and concatenate once: repeatedly torch.cat-ing a
+        # growing tensor per sample is O(N^2) in copies and dominates runtime.
+        E_chunks, F_chunks = [], []
 
         with torch.no_grad():
             for img in tqdm(dataset, desc="Encoding"):
-                
+
                 if not validation: img, _ = img
-                
+
                 img = img.unsqueeze(0).to("cuda:0")
                 enc = encoder(img)
                 enc = torch.nn.functional.normalize(enc)
-                E = torch.cat((E, enc), 0)
-                F = torch.cat((F, enc @ prototypes.T), 0)
+                E_chunks.append(enc)
+                F_chunks.append(enc @ prototypes.T)
+
+        E = torch.cat(E_chunks, 0)
+        F = torch.cat(F_chunks, 0)
 
         os.makedirs(read_path, exist_ok=True)
         torch.save(E, os.path.join(read_path,E_file_name))

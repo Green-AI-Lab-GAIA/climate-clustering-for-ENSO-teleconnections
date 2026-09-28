@@ -3,10 +3,15 @@ secrets/*
 base_models
 **/__pycache__/
 *.pyc
+nohup.out
+logs/
+nature_exemples/
+*.zip
 
 # Large model checkpoint — exclude everything except the config yaml
 checkpoint/
 !checkpoint/temperature-run2/params-temperature-exp-2-c30.yaml
+!checkpoint/temperature-run2/temperature-exp-2-c30-latest.pth.tar
 
 # app_data/ is pre-computed and MUST be committed (Streamlit Cloud reads it)
 # (nothing to exclude here — all files are small)
