@@ -6,8 +6,9 @@ def read_enso_data(path = '../data/oni_index.xlsx'):
     oni_index = pd.read_excel(path)
     oni_index.set_index('Year', inplace=True)
     oni_index.columns.name='Month'
-    # c_map = dict(zip(list(range(2,13))+[1],oni_index.columns))
-    oni_index.columns = list(range(2,13))+[1]
+    # Columns are 3-month seasons named by their months (DJF, JFM, …, NDJ), so each
+    # value belongs to the season's centre month: DJF -> Jan, JFM -> Feb, …, NDJ -> Dec.
+    oni_index.columns = list(range(1, 13))
     oni_index= oni_index.unstack().to_frame('ONI')
     oni_index['date_period'] = pd.to_datetime(oni_index.index.map(lambda x: f"{x[1]}-{x[0]}-01")).to_period('M')
     oni_index = oni_index.set_index('date_period').sort_index()
