@@ -5,7 +5,7 @@ criterion: {ent_weight: 0.0, final_sharpen: 0.25, me_max: true, memax_weight: 1.
   use_ent: false, use_sinkhorn: true}
 data:
   pin_mem: true
-  num_workers: 10
+  num_workers: 16
   image_folder: null
   label_smoothing: 0.0
   patch_drop: 0.15
@@ -26,7 +26,7 @@ data:
   data_source: era5
   npy_dir: ../data/era5_npy/amazonia_daily
 logging: {folder: checkpoint/a100-t60_b1024/, write_tag: a100-t60_b1024}
-meta: {bottleneck: 1, copy_data: false, drop_path_rate: 0.0, hidden_dim: 2048, load_checkpoint: false,
+meta: {bottleneck: 1, copy_data: false, drop_path_rate: 0.0, hidden_dim: 2048, load_checkpoint: auto,
   model_name: deit_small_temperature, output_dim: 128, read_checkpoint: null, use_bn: true,
   use_fp16: false, use_bf16: true, use_pred_head: false, seed: 0}
 optimization: {clip_grad: 3.0, epochs: 200, final_lr: 1.0e-06, final_weight_decay: 0.4,

@@ -32,7 +32,27 @@ If the folder lives elsewhere, change `NPY_DIR` in `scripts/make_a100_configs.py
 `uv sync` installs torch cu130. If the A100 driver is older than CUDA 13, install the cu128 wheels
 (`uv pip install torch==2.11.0+cu128 torchvision==0.26.0+cu128 --index-url https://download.pytorch.org/whl/cu128`).
 
-## 4. Run
+## 4. Run on the FGV HPC (Slurm)
+
+Rules (full list in the DTI guide *Usar o HPC*): nothing heavy on `hpchead`; every job has `--time` ≤ 24 h and
+`--gres=gpu:1`, never `--mem`/`-c`; one job at a time on the A100 node; maintenance on the first Tuesday of the
+month 09–13 h (requeued jobs resume thanks to `meta.load_checkpoint: auto`). Environment (on `hpchead`):
+
+```bash
+uv venv --python 3.12 && source .venv/bin/activate
+uv pip install torch==2.14.1 torchvision --torch-backend=cu126
+uv pip install numpy pandas pyyaml xarray scipy scikit-learn matplotlib tqdm
+```
+
+Queue all runs (one Slurm job each, chained in priority order, logs in `logs/slurm/`):
+
+```bash
+scripts/slurm/submit_a100.sh            # DRY=1 to preview; or pass run names
+squeue --me; sacct -X -S now-2days -o JobID,JobName,State,Elapsed
+scancel -u $USER --state=PENDING        # drop everything not started
+```
+
+## 4b. Run on a plain machine (no Slurm)
 
 ```bash
 setsid scripts/run_a100_chain.sh > logs/a100_chain.log 2>&1 &   # all runs, priority order
@@ -55,7 +75,8 @@ val MSN, no early stopping. Batch 512 runs use **no micro-batching** (true full-
 | `p30_roll30` | trailing 30-day tp sum per pixel, daily samples | accumulated precip (z skew 0.7, kurtosis 1.5 without a transform) |
 | `p10_monthly` | calendar-month tp sum, 516 train months, batch 128, 500 epochs | monthly precip regimes; small-data check |
 
-New config keys (all optional, defaults reproduce earlier runs): `data.npy_dir`,
+New config keys (all optional, defaults reproduce earlier runs): `meta.load_checkpoint: auto`
+(resume from `-latest` if present, restoring the best val value), `data.npy_dir`,
 `data.temporal_agg` (`{kind: rolling, window: N}` or `{kind: monthly}`; tp summed, temperatures
 averaged), `data.remove_spatial_mean`, `meta.seed` (default 0, also seeds the sampler).
 

@@ -23,6 +23,7 @@ import sys
 from collections import OrderedDict
 
 import numpy as np
+import pandas as pd
 
 import torch
 import torch.multiprocessing as mp
@@ -252,6 +253,11 @@ def main(args):
     save_path = os.path.join(folder, f'{tag}' + '-ep{epoch}.pth.tar')
     latest_path = os.path.join(folder, f'{tag}-latest.pth.tar')
     load_path = None
+    # load_checkpoint: 'auto' resumes from -latest if it exists (safe for Slurm requeues
+    # after a node reboot); otherwise starts fresh.
+    if load_model == 'auto':
+        load_model = r_file is None and os.path.exists(latest_path)
+        logger.info(f'load_checkpoint=auto -> {"resuming from " + latest_path if load_model else "fresh start"}')
     if load_model:
         load_path = os.path.join(folder, r_file) if r_file is not None else latest_path
 
@@ -411,6 +417,20 @@ def main(args):
     best_path = os.path.join(folder, f'{tag}-best.pth.tar')
     best_val_loss = float('inf')
     epochs_since_improvement = 0
+    if load_model and os.path.exists(val_log_file):
+        # Resumed run: recover the best monitored val value so far, so the first
+        # resumed epoch does not overwrite a better -best checkpoint.
+        try:
+            vdf = pd.read_csv(val_log_file)
+            vdf = vdf[pd.to_numeric(vdf['epoch'], errors='coerce').notna()].astype(float)
+            vdf = vdf[vdf['epoch'] <= start_epoch]
+            col = 'val_msn' if val_metric == 'msn' else 'val_loss'
+            if len(vdf):
+                best_val_loss = float(vdf[col].min())
+                epochs_since_improvement = int(start_epoch - vdf.loc[vdf[col].idxmin(), 'epoch'])
+                logger.info(f'resumed best val {val_metric}={best_val_loss:.4f}')
+        except Exception as e:  # never block training on a log parse
+            logger.info(f'could not restore best val from {val_log_file}: {e}')
 
     def _build_save_dict(epoch, extra=None):
         target_encoder_state_dict = target_encoder.state_dict() if target_encoder is not None else None

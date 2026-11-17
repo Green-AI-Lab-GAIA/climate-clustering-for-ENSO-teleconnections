@@ -57,7 +57,9 @@ def build(name, desc, o):
     for k in ('var_transform', 'temporal_agg', 'remove_spatial_mean'):
         if k in o:
             d[k] = o[k]
-    c['meta'].update(model_name=v['model'], seed=o.get('seed', 0), use_bf16=True)
+    # load_checkpoint 'auto': a requeued Slurm job (node reboot) resumes from -latest.
+    c['meta'].update(model_name=v['model'], seed=o.get('seed', 0), use_bf16=True, load_checkpoint='auto')
+    d['num_workers'] = 16  # FGV A100 node: 24 vCPUs for the whole job
     c['optimization'].update(epochs=o.get('epochs', 100), warmup=o.get('warmup', 15),
                              lr=o.get('lr', c['optimization']['lr']), val_patience=0, val_metric='msn')
     tag = f'a100-{name}'
