@@ -37,7 +37,12 @@ def init_data(
     split_val=False,
     val_years=(2023, 2024, 2025),
     data_source='era5',
-    deseason_standardize=False
+    deseason_standardize=False,
+    var_transform=None,
+    npy_dir=None,
+    temporal_agg=None,
+    remove_spatial_mean=False,
+    seed=0
 ):
 
     if data_source == 'era5':
@@ -45,7 +50,11 @@ def init_data(
                               lat_lim=lat_lim, lon_lim=lon_lim,
                               split_val=split_val, val_years=val_years,
                               return_time_period=True,
-                              deseason_standardize=deseason_standardize)
+                              deseason_standardize=deseason_standardize,
+                              var_transform=var_transform,
+                              npy_dir=npy_dir,
+                              temporal_agg=temporal_agg,
+                              remove_spatial_mean=remove_spatial_mean)
 
     else:
         dataset = BrazilWeatherDataset( transform=transform,
@@ -60,7 +69,8 @@ def init_data(
     dist_sampler = torch.utils.data.distributed.DistributedSampler(
         dataset=dataset,
         num_replicas=world_size,
-        rank=rank)
+        rank=rank,
+        seed=seed)
 
     data_loader = torch.utils.data.DataLoader(
         dataset,
@@ -264,16 +274,52 @@ class Era5Dataset(torch.utils.data.Dataset):
     # ERA5 total precipitation is hourly accumulation in metres; store daily mm.
     VAR_SCALE = {'tp': 1000.0}
 
+    # Optional per-variable transform of the daily values (config: data.var_transform,
+    # e.g. {'tp': 'cbrt'}). Applied right after the daily tensor is loaded and BEFORE
+    # the train/val split and the per-month z-score, so the z-score is computed on the
+    # transformed values. The daily cache always stores untransformed values, so
+    # changing it never needs a cache rebuild. Raw daily precipitation is extremely
+    # right-skewed (z-score skew ~+4, excess kurtosis ~+46); cbrt brings that to ~0.5/1.7.
+    VAR_TRANSFORMS = {
+        'cbrt': lambda x: x.clamp_min(0) ** (1 / 3),
+        'log1p_0.1': lambda x: torch.log1p(x.clamp_min(0) / 0.1),
+    }
+
     def __init__(self, transform, data_path="../data/era5/*.nc",
                  surf_vars=('mx2t', 'mn2t'),
                  lat_lim=None, lon_lim=None,
                  split_val=False,
                  val_years=(2010, 2015,2023),
                  return_time_period=False,
-                 deseason_standardize=False):
+                 deseason_standardize=False,
+                 var_transform=None,
+                 npy_dir=None,
+                 temporal_agg=None,
+                 remove_spatial_mean=False):
         self.transform = transform
+        # npy_dir: folder written by scripts/export_training_data.py (one (T, H, W)
+        # float32 .npy per variable + times.npy). Replaces reading the netCDF files,
+        # so a machine only needs that folder. Values are the same raw daily cache
+        # (cropped, hourly->daily, tp in mm); every transform below is unchanged.
+        self.npy_dir = npy_dir
+        # temporal_agg: None (daily), {'kind': 'rolling', 'window': 30} (trailing
+        # N-day aggregate, one sample per day) or {'kind': 'monthly'} (calendar-month
+        # aggregate, one sample per month). tp is summed, temperatures averaged.
+        self.temporal_agg = dict(temporal_agg) if temporal_agg else None
+        if self.temporal_agg and self.temporal_agg.get('kind') not in ('rolling', 'monthly'):
+            raise ValueError(f"temporal_agg.kind must be 'rolling' or 'monthly', got {self.temporal_agg}")
+        # remove_spatial_mean: after the z-score, subtract each day's domain mean per
+        # channel, so the model sees only the spatial pattern (the review found ~85 %
+        # of MSN separation is the domain-mean level).
+        self.remove_spatial_mean = remove_spatial_mean
         self.return_time_period = return_time_period
         self.deseason_standardize = deseason_standardize
+        self.var_transform = dict(var_transform) if var_transform else {}
+        for var, name in self.var_transform.items():
+            if var not in surf_vars:
+                raise ValueError(f'var_transform names {var!r}, not in surf_vars {list(surf_vars)}')
+            if name not in self.VAR_TRANSFORMS:
+                raise ValueError(f'unknown transform {name!r}; choose from {list(self.VAR_TRANSFORMS)}')
         self.imgs, self.validation_imgs = self.load_images(
             data_path, list(surf_vars), lat_lim, lon_lim,
             split_val=split_val, val_years=tuple(val_years),
@@ -319,8 +365,62 @@ class Era5Dataset(torch.utils.data.Dataset):
         lat_slice = slice(lat_max, lat_min) if lat_descending else slice(lat_min, lat_max)
         return ds.sel(latitude=lat_slice, longitude=slice(lon_min, lon_max))
 
+    def _load_npy(self, surf_vars, lat_lim, lon_lim):
+        import json
+        with open(os.path.join(self.npy_dir, 'meta.json')) as f:
+            meta = json.load(f)
+        for name, want, have in (('lat_limit', lat_lim, meta.get('lat_limit')),
+                                 ('lon_limit', lon_lim, meta.get('lon_limit'))):
+            if want is not None and have is not None and sorted(want) != sorted(have):
+                raise ValueError(f'{name} {want} differs from the exported data ({have}); '
+                                 f're-export or fix the config')
+        missing = [v for v in surf_vars if v not in meta['vars']]
+        if missing:
+            raise ValueError(f'{missing} not in exported vars {meta["vars"]}')
+        x_surf = torch.stack([torch.from_numpy(np.load(os.path.join(self.npy_dir, f'{v}.npy')))
+                              for v in surf_vars], dim=1).float()
+        times_index = pd.DatetimeIndex(np.load(os.path.join(self.npy_dir, 'times.npy')))
+        logger.info(f'loaded {surf_vars} from {self.npy_dir}: {tuple(x_surf.shape)}')
+        return x_surf, times_index
+
+    def _temporal_aggregate(self, x, times, surf_vars):
+        kind = self.temporal_agg['kind']
+        T = x.shape[0]
+        frame = x.reshape(T, x.shape[1], -1).numpy()
+        out = []
+        for i, var in enumerate(surf_vars):
+            df = pd.DataFrame(frame[:, i], index=times)
+            how = 'sum' if var == 'tp' else 'mean'
+            if kind == 'rolling':
+                w = int(self.temporal_agg.get('window', 30))
+                # trailing window; the first w-1 days are dropped (incomplete window)
+                agg = getattr(df.rolling(w), how)().iloc[w - 1:]
+            else:
+                agg = getattr(df.resample('MS'), how)()
+            out.append(torch.from_numpy(agg.values.astype(np.float32)))
+        new_times = pd.DatetimeIndex(agg.index)
+        x = torch.stack(out, dim=1).reshape(len(new_times), *x.shape[1:])
+        logger.info(f'temporal aggregation {self.temporal_agg}: {T} -> {len(new_times)} samples')
+        return x, new_times
+
     def load_images(self, data_path, surf_vars, lat_lim, lon_lim,
                     split_val, val_years):
+        if self.npy_dir:
+            x_surf, times_index = self._load_npy(surf_vars, lat_lim, lon_lim)
+        else:
+            x_surf, times_index = self._load_netcdf_daily(data_path, surf_vars, lat_lim, lon_lim)
+
+        if self.temporal_agg:
+            x_surf, times_index = self._temporal_aggregate(x_surf, times_index, surf_vars)
+
+        for var, name in self.var_transform.items():
+            i = surf_vars.index(var)
+            x_surf[:, i] = self.VAR_TRANSFORMS[name](x_surf[:, i])
+            logger.info(f'applied {name} transform to {var}')
+
+        return self._split_and_standardize(x_surf, times_index, split_val, val_years)
+
+    def _load_netcdf_daily(self, data_path, surf_vars, lat_lim, lon_lim):
         var_files = self._resolve_var_files(data_path, surf_vars)
         cache_path = self._daily_cache_path(var_files, surf_vars, lat_lim, lon_lim)
         if os.path.exists(cache_path):
@@ -365,7 +465,9 @@ class Era5Dataset(torch.utils.data.Dataset):
             os.makedirs(os.path.dirname(cache_path), exist_ok=True)
             torch.save({'x_surf': x_surf, 'times_index': times_index}, cache_path)
             logger.info(f'saved daily tensor cache to {cache_path}')
+        return x_surf, times_index
 
+    def _split_and_standardize(self, x_surf, times_index, split_val, val_years):
         if split_val:
             val_mask = times_index.year.isin(list(val_years))
             val_indices = np.where(val_mask)[0]
@@ -389,6 +491,12 @@ class Era5Dataset(torch.utils.data.Dataset):
             if validation is not None:
                 validation = self._apply_monthly_cell_zscore(validation, self.val_time, mu, sigma)
             logger.info('applied per-month per-cell deseasonalised standardisation (anomalies)')
+
+        if self.remove_spatial_mean:
+            x_surf = x_surf - x_surf.mean(dim=(2, 3), keepdim=True)
+            if validation is not None:
+                validation = validation - validation.mean(dim=(2, 3), keepdim=True)
+            logger.info('removed per-sample domain mean (pattern-only input)')
 
         return x_surf, validation
 

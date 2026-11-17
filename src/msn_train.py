@@ -63,6 +63,77 @@ logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 logger = logging.getLogger()
 
 
+def _autocast(enabled):
+    return torch.autocast('cuda', dtype=torch.bfloat16,
+                          enabled=bool(enabled) and torch.cuda.is_available())
+
+
+def _get_rng_state(device):
+    cuda = torch.cuda.get_rng_state(device) if torch.cuda.is_available() else None
+    return torch.get_rng_state(), cuda
+
+
+def _set_rng_state(state, device):
+    cpu, cuda = state
+    torch.set_rng_state(cpu)
+    if cuda is not None:
+        torch.cuda.set_rng_state(cuda, device)
+
+
+def msn_forward_backward(encoder, target_encoder, imgs, full_loss,
+                         micro_batch_size, patch_drop, use_bf16, device):
+    """Forward + backward for one MSN batch, optionally in micro-batch chunks.
+
+    imgs[0] are the target views (B, C, H, W); imgs[1:] the anchor views.
+    full_loss(anchor_views, target_views) -> (loss, ploss, me_max, ent, logs).
+    Leaves gradients in encoder params and prototypes; returns full_loss's tuple.
+
+    With micro_batch_size < B this is exact gradient caching (Gao et al., 2021).
+    Sinkhorn and me-max are batch-level, so plain gradient accumulation would
+    change the objective. Instead: (1) embed every chunk without grad, (2) compute
+    the loss over the FULL batch on the small embedding matrix and get dL/dz,
+    (3) re-run each chunk with grad, replaying its RNG state so patch_drop picks
+    the same tokens, and backprop its slice of dL/dz. The only deviation from a
+    true full-batch step is that BatchNorm in the projection head sees
+    micro-batch statistics (and its running stats are updated twice per chunk).
+    """
+    B = imgs[0].shape[0]
+    if micro_batch_size >= B:
+        # h: representations before head (target), z: after head (anchors)
+        with _autocast(use_bf16):
+            _, z = encoder(imgs[1:], return_before_head=True, patch_drop=patch_drop)
+            with torch.no_grad():
+                h, _ = target_encoder(imgs[0], return_before_head=True)
+        out = full_loss(z.float(), h.float().detach())
+        out[0].backward()
+        return out
+
+    chunks = [(s, min(s + micro_batch_size, B)) for s in range(0, B, micro_batch_size)]
+    V = len(imgs) - 1
+
+    with torch.no_grad(), _autocast(use_bf16):
+        h = torch.cat([target_encoder(imgs[0][s:e], return_before_head=True)[0]
+                       for s, e in chunks]).float()
+        rng_states, z_chunks = [], []
+        for s, e in chunks:
+            rng_states.append(_get_rng_state(device))
+            _, zc = encoder([v[s:e] for v in imgs[1:]], return_before_head=True, patch_drop=patch_drop)
+            z_chunks.append(zc.float().view(V, e - s, -1))
+
+    # encoder output is view-major: [view0 x B, view1 x B, ...]
+    z = torch.cat(z_chunks, dim=1).reshape(V * B, -1).requires_grad_()
+    out = full_loss(z, h)
+    out[0].backward()  # -> prototypes.grad and z.grad
+    z_grad = z.grad.view(V, B, -1)
+
+    for (s, e), state in zip(chunks, rng_states):
+        _set_rng_state(state, device)
+        with _autocast(use_bf16):
+            _, zc = encoder([v[s:e] for v in imgs[1:]], return_before_head=True, patch_drop=patch_drop)
+        zc.float().backward(z_grad[:, s:e].reshape(V * (e - s), -1))
+    return out
+
+
 def main(args):
 
     # ----------------------------------------------------------------------- #
@@ -81,6 +152,13 @@ def main(args):
     use_pred_head = args['meta']['use_pred_head']
     use_bn = args['meta']['use_bn']
     drop_path_rate = args['meta']['drop_path_rate']
+    # bf16 autocast for the encoders; the MSN loss itself stays in fp32.
+    use_bf16 = args['meta'].get('use_bf16', False)
+    # Training seed (model init, prototypes, augmentations). Default 0 = the value
+    # every earlier run used. Validation augmentations stay fixed at _GLOBAL_SEED.
+    seed = args['meta'].get('seed', _GLOBAL_SEED)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
     if not torch.cuda.is_available():
         device = torch.device('cpu')
     else:
@@ -97,6 +175,11 @@ def main(args):
     num_proto = args['criterion']['num_proto']
     # --
     batch_size = args['criterion']['batch_size']
+    # Samples per forward/backward chunk. The loss is still computed over the
+    # whole `batch_size` batch (exact gradient caching, see train_step), so
+    # Sinkhorn and me-max keep seeing the full batch. None/0 = no chunking.
+    micro_batch_size = args['criterion'].get('micro_batch_size') or batch_size
+    assert batch_size % micro_batch_size == 0, 'batch_size must be a multiple of micro_batch_size'
     temperature = args['criterion']['temperature']
     _start_T = args['criterion']['start_sharpen']
     _final_T = args['criterion']['final_sharpen']
@@ -122,6 +205,10 @@ def main(args):
     val_years = args['data'].get('val_years', (2023, 2024, 2025))
     data_source= args['data']['data_source']
     deseason_standardize = args['data'].get('deseason_standardize', False)
+    var_transform = args['data'].get('var_transform')  # e.g. {'tp': 'cbrt'}
+    npy_dir = args['data'].get('npy_dir')  # exported .npy folder instead of netCDF
+    temporal_agg = args['data'].get('temporal_agg')  # e.g. {'kind': 'rolling', 'window': 30}
+    remove_spatial_mean = args['data'].get('remove_spatial_mean', False)
     # --
 
     # -- OPTIMIZATION
@@ -134,6 +221,11 @@ def main(args):
     lr = args['optimization']['lr']
     final_lr = args['optimization']['final_lr']
     val_patience = args['optimization'].get('val_patience', 0)  # 0 disables early stopping
+    # 'loss' = msn + me_max (default, original behaviour); 'msn' = prediction term only.
+    # The val me_max term is noisy (few, climatically unusual val days), so 'msn' is
+    # the steadier choice for picking -best.pth.tar.
+    val_metric = args['optimization'].get('val_metric', 'loss')
+    assert val_metric in ('loss', 'msn'), f'unknown val_metric {val_metric!r}'
 
     # -- LOGGING
     folder = args['logging']['folder']
@@ -238,7 +330,12 @@ def main(args):
         split_val=split_val,
         val_years=val_years,
         data_source=data_source,
-        deseason_standardize=deseason_standardize
+        deseason_standardize=deseason_standardize,
+        var_transform=var_transform,
+        npy_dir=npy_dir,
+        temporal_agg=temporal_agg,
+        remove_spatial_mean=remove_spatial_mean,
+        seed=seed
          )
     ipe = len(unsupervised_loader)
     logger.info(f'iterations per epoch: {ipe}')
@@ -380,8 +477,9 @@ def main(args):
                     imgs = [torch.stack([sample_views[b][v] for b in range(bs)]).to(device, non_blocking=True)
                             for v in range(num_views)]
 
-                    h_t, _ = target_encoder(imgs[0], return_before_head=True)
-                    h, z = encoder(imgs[1:], return_before_head=True, patch_drop=patch_drop)
+                    with _autocast(use_bf16):
+                        h_t, _ = target_encoder(imgs[0], return_before_head=True)
+                        h, z = encoder(imgs[1:], return_before_head=True, patch_drop=patch_drop)
                     z = z.float()
                     target_views = h_t.float().detach()
 
@@ -436,43 +534,27 @@ def main(args):
 
             def train_step():
                 optimizer.zero_grad()
-
-                # --
-                # h: representations of 'imgs' before head
-                # z: representations of 'imgs' after head
-                # -- If use_pred_head=False, then encoder.pred (prediction
-                #    head) is None, and _forward_head just returns the
-                #    identity, z=h
-                h, z = encoder(imgs[1:], return_before_head=True, patch_drop=patch_drop)
-                with torch.no_grad():
-                    h, _ = target_encoder(imgs[0], return_before_head=True)
-
-                # Step 1. convert representations to fp32
-                h, z = h.float(), z.float()
-
-                # Step 2. determine anchor views/supports and their
-                #         corresponding target views/supports
-                # --
-                anchor_views, target_views = z, h.detach()
                 T = next(sharpen_scheduler)
-
-                # Step 3. compute msn loss with me-max regularization
-                (ploss, me_max, ent, logs, _) = msn(
-                    T=T,
-                    use_sinkhorn=use_sinkhorn,
-                    use_entropy=use_ent,
-                    anchor_views=anchor_views,
-                    target_views=target_views,
-                    proto_labels=proto_labels,
-                    prototypes=prototypes)
-                loss = ploss + memax_weight*me_max + ent_weight*ent
-
                 _new_lr = scheduler.step()
                 _new_wd = wd_scheduler.step()
-                # --
+
+                def full_loss(anchor_views, target_views):
+                    (ploss, me_max, ent, logs, _) = msn(
+                        T=T,
+                        use_sinkhorn=use_sinkhorn,
+                        use_entropy=use_ent,
+                        anchor_views=anchor_views,
+                        target_views=target_views,
+                        proto_labels=proto_labels,
+                        prototypes=prototypes)
+                    return ploss + memax_weight*me_max + ent_weight*ent, ploss, me_max, ent, logs
+
+                loss, ploss, me_max, ent, logs = msn_forward_backward(
+                    encoder, target_encoder, imgs, full_loss,
+                    micro_batch_size=micro_batch_size, patch_drop=patch_drop,
+                    use_bf16=use_bf16, device=device)
 
                 # Step 4. Optimization step
-                loss.backward()
                 with torch.no_grad():
                     prototypes.grad.data = AllReduceSum.apply(prototypes.grad.data)
                 grad_stats = grad_logger(encoder.named_parameters())
@@ -546,12 +628,14 @@ def main(args):
             logger.info('[epoch %d] val loss: %.3f (msn=%.3f, me_max=%.3f, ent=%.3f)'
                         % (epoch+1, val_loss, val_msn, val_memax, val_ent))
             val_csv_logger.log(epoch+1, val_loss, val_msn, val_memax, val_ent)
-            if np.isfinite(val_loss) and val_loss < best_val_loss:
-                best_val_loss = val_loss
+            # which validation term picks the "best" checkpoint / drives early stopping
+            monitored = val_msn if val_metric == 'msn' else val_loss
+            if np.isfinite(monitored) and monitored < best_val_loss:
+                best_val_loss = monitored
                 epochs_since_improvement = 0
                 save_best_checkpoint(epoch+1, val_loss)
-                logger.info('[epoch %d] new best val loss: %.3f -> saved %s'
-                            % (epoch+1, val_loss, best_path))
+                logger.info('[epoch %d] new best val %s: %.3f -> saved %s'
+                            % (epoch+1, val_metric, monitored, best_path))
             else:
                 epochs_since_improvement += 1
                 if val_patience > 0 and epochs_since_improvement >= val_patience:

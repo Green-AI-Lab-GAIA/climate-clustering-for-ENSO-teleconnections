@@ -49,6 +49,7 @@ def process_main(rank, fname, world_size, devices):
         pp = pprint.PrettyPrinter(indent=4)
         pp.pprint(params)
 
+    os.makedirs(params['logging']['folder'], exist_ok=True)
     dump = os.path.join(params['logging']['folder'], f"params-{params['logging']['write_tag']}.yaml")
     with open(dump, 'w') as f:
         yaml.dump(params, f)

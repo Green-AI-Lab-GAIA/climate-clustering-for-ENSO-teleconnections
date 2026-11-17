@@ -1,0 +1,86 @@
+/home/livia/Documentos/Projetos/climate-clustering-for-ENSO-teleconnections/src/data_manager.py:424: UserWarning: The given NumPy array is not writable, and PyTorch does not support non-writable tensors. This means writing to this tensor will result in undefined behavior. You may want to copy the array to protect its data or make it writable before converting it to a tensor. This type of warning will be suppressed for the rest of this program. (Triggered internally at /pytorch/torch/csrc/utils/tensor_numpy.cpp:213.)
+  months = torch.as_tensor(pd.DatetimeIndex(times).month.values)
+T15: K=15, train days=15706
+ENSO-FWER clusters (|shift|>=24): [0, 3, 4, 5, 9]
+silhouette: embedding (cosine) 0.378 | field space (euclid) -0.032
+median pattern corr with own composite: 0.20; days with corr<0: 24.5%
+median top1-top2 cosine margin: 0.170; days with margin<0.02: 6.7%
+level overlap between level-adjacent clusters: median 0.69 (0=disjoint, 1=identical)
+mean composite SNR (|mean|/within-sd, averaged over cells): 0.59 (range 0.12-1.22)
+
+         size_pct  oni_r  enso_fwer  level_mean  level_sd  level_iqr  level_skew  within_sd  comp_amp   snr  pc_med  pc_p10  pc_neg_pct  margin_med
+cluster                                                                                                                                            
+14           6.91  -0.08      False       -0.78      0.32       0.33       -1.92       0.76      0.78  1.05    0.23   -0.12       22.12        0.24
+3            6.37  -0.29       True       -0.66      0.29       0.33       -2.07       0.69      0.66  0.98    0.25   -0.15       22.98        0.24
+5            6.30  -0.22       True       -0.50      0.15       0.19       -1.09       0.63      0.50  0.82    0.16   -0.16       25.99        0.13
+11           6.65  -0.17      False       -0.30      0.15       0.18       -0.69       0.65      0.30  0.47    0.18   -0.07       16.67        0.15
+2            6.48  -0.20      False       -0.28      0.12       0.14       -0.59       0.64      0.28  0.45    0.22   -0.33       30.68        0.11
+9            6.93  -0.27       True       -0.17      0.12       0.17       -0.16       0.63      0.19  0.30    0.25   -0.21       23.88        0.16
+7            6.28  -0.16      False       -0.10      0.18       0.17       -1.81       0.80      0.10  0.12    0.01   -0.41       49.29        0.13
+10           6.79   0.03      False       -0.08      0.19       0.22       -1.48       0.75      0.16  0.20    0.20   -0.26       30.46        0.17
+12           6.35   0.04      False        0.05      0.11       0.16       -0.05       0.57      0.07  0.14    0.19   -0.25       27.96        0.16
+13           7.14  -0.12      False        0.15      0.13       0.17        0.25       0.62      0.17  0.30    0.25   -0.07       15.60        0.18
+8            6.25  -0.05      False        0.28      0.13       0.17        0.35       0.72      0.28  0.41    0.16   -0.12       22.00        0.14
+4            7.21   0.21       True        0.30      0.14       0.20        0.25       0.71      0.31  0.44    0.20   -0.27       27.01        0.17
+6            6.69   0.17      False        0.44      0.13       0.18        0.19       0.60      0.44  0.75    0.15   -0.12       24.07        0.15
+1            6.96   0.14      False        0.70      0.24       0.29        0.89       0.64      0.70  1.13    0.32    0.00        9.88        0.23
+0            6.68   0.45       True        0.87      0.28       0.37        0.86       0.72      0.87  1.22    0.20   -0.13       21.07        0.29
+figures in docs/review_2026-11/T15
+/home/livia/Documentos/Projetos/climate-clustering-for-ENSO-teleconnections/src/data_manager.py:424: UserWarning: The given NumPy array is not writable, and PyTorch does not support non-writable tensors. This means writing to this tensor will result in undefined behavior. You may want to copy the array to protect its data or make it writable before converting it to a tensor. This type of warning will be suppressed for the rest of this program. (Triggered internally at /pytorch/torch/csrc/utils/tensor_numpy.cpp:213.)
+  months = torch.as_tensor(pd.DatetimeIndex(times).month.values)
+T30: K=30, train days=15706
+ENSO-FWER clusters (|shift|>=24): [0, 6, 15, 19, 21, 25, 28]
+silhouette: embedding (cosine) 0.258 | field space (euclid) -0.036
+median pattern corr with own composite: 0.28; days with corr<0: 17.2%
+median top1-top2 cosine margin: 0.116; days with margin<0.02: 10.2%
+level overlap between level-adjacent clusters: median 0.77 (0=disjoint, 1=identical)
+mean composite SNR (|mean|/within-sd, averaged over cells): 0.64 (range 0.13-1.46)
+
+         size_pct  oni_r  enso_fwer  level_mean  level_sd  level_iqr  level_skew  within_sd  comp_amp   snr  pc_med  pc_p10  pc_neg_pct  margin_med
+cluster                                                                                                                                            
+15           3.13  -0.20       True       -0.96      0.32       0.29       -2.37       0.78      0.96  1.25    0.28   -0.14       21.14        0.15
+27           3.11  -0.06      False       -0.86      0.33       0.30       -2.03       0.76      0.86  1.15    0.30   -0.11       20.25        0.17
+28           3.50  -0.25       True       -0.64      0.17       0.22       -0.99       0.63      0.64  1.05    0.32   -0.17       22.73        0.18
+29           3.16  -0.17      False       -0.51      0.11       0.15       -0.08       0.55      0.51  0.95    0.17   -0.06       16.50        0.09
+5            2.50  -0.17      False       -0.46      0.16       0.23       -0.19       0.65      0.47  0.74    0.48   -0.19       15.52        0.09
+14           3.16  -0.17      False       -0.44      0.14       0.19       -0.35       0.62      0.44  0.72    0.22   -0.06       15.12        0.09
+21           2.84  -0.20       True       -0.34      0.10       0.14        0.13       0.57      0.34  0.61    0.13   -0.20       30.27        0.09
+4            2.60  -0.06      False       -0.33      0.32       0.43       -0.85       0.83      0.47  0.52    0.64    0.28        2.93        0.15
+11           2.90  -0.07      False       -0.30      0.14       0.18       -0.49       0.55      0.39  0.73    0.53    0.28        0.22        0.13
+17           3.27  -0.18      False       -0.27      0.14       0.15       -0.94       0.59      0.27  0.47    0.16   -0.19       28.79        0.08
+16           3.74  -0.09      False       -0.27      0.17       0.17       -1.11       0.68      0.27  0.40    0.26   -0.08       18.20        0.13
+9            2.64  -0.11      False       -0.20      0.20       0.23       -0.48       0.69      0.36  0.54    0.53    0.16        4.58        0.12
+2            3.17  -0.15      False       -0.20      0.15       0.18       -0.29       0.64      0.27  0.43    0.44   -0.10       13.86        0.11
+25           3.52  -0.22       True       -0.17      0.13       0.19       -0.20       0.61      0.19  0.31    0.27   -0.17       21.88        0.12
+7            3.18  -0.12      False       -0.07      0.11       0.15       -0.04       0.60      0.20  0.35    0.39    0.01        9.60        0.10
+26           3.03   0.03      False       -0.03      0.11       0.14       -0.10       0.59      0.07  0.13    0.13   -0.19       29.83        0.08
+23           3.41  -0.04      False        0.03      0.12       0.16        0.24       0.59      0.15  0.28    0.35   -0.01       10.47        0.09
+3            2.84  -0.06      False        0.08      0.12       0.17        0.07       0.59      0.09  0.17    0.13   -0.12       25.78        0.10
+10           3.56   0.12      False        0.10      0.13       0.19       -0.25       0.61      0.12  0.20    0.17   -0.10       20.75        0.12
+13           4.34  -0.10      False        0.13      0.12       0.17        0.27       0.58      0.16  0.31    0.29   -0.01       12.04        0.12
+20           2.99   0.17      False        0.19      0.34       0.44       -0.21       0.86      0.53  0.63    0.64    0.27        3.84        0.17
+18           3.67  -0.02      False        0.21      0.12       0.17        0.11       0.57      0.21  0.43    0.31   -0.02       11.96        0.10
+8            3.11  -0.15      False        0.25      0.20       0.26        0.10       0.83      0.26  0.33    0.18   -0.15       26.23        0.11
+24           3.10   0.13      False        0.28      0.14       0.19        0.13       0.71      0.28  0.40    0.24   -0.42       30.80        0.09
+12           4.03   0.12      False        0.34      0.11       0.15       -0.02       0.56      0.34  0.65    0.13   -0.12       23.70        0.10
+1            4.06  -0.04      False        0.43      0.13       0.19        0.10       0.60      0.44  0.78    0.29   -0.03       12.56        0.13
+0            3.92   0.28       True        0.49      0.14       0.20        0.20       0.68      0.49  0.74    0.23   -0.18       23.58        0.13
+6            3.86   0.22       True        0.59      0.11       0.16        0.11       0.61      0.59  1.01    0.19   -0.09       18.78        0.10
+22           3.89   0.20      False        0.85      0.21       0.27        0.99       0.62      0.85  1.42    0.33    0.03        7.86        0.15
+19           3.75   0.42       True        1.03      0.25       0.34        0.90       0.71      1.03  1.46    0.26   -0.06       15.28        0.22
+figures in docs/review_2026-11/T30
+/home/livia/Documentos/Projetos/climate-clustering-for-ENSO-teleconnections/src/data_manager.py:424: UserWarning: The given NumPy array is not writable, and PyTorch does not support non-writable tensors. This means writing to this tensor will result in undefined behavior. You may want to copy the array to protect its data or make it writable before converting it to a tensor. This type of warning will be suppressed for the rest of this program. (Triggered internally at /pytorch/torch/csrc/utils/tensor_numpy.cpp:213.)
+  months = torch.as_tensor(pd.DatetimeIndex(times).month.values)
+/home/livia/Documentos/Projetos/climate-clustering-for-ENSO-teleconnections/src/data_manager.py:424: UserWarning: The given NumPy array is not writable, and PyTorch does not support non-writable tensors. This means writing to this tensor will result in undefined behavior. You may want to copy the array to protect its data or make it writable before converting it to a tensor. This type of warning will be suppressed for the rest of this program. (Triggered internally at /pytorch/torch/csrc/utils/tensor_numpy.cpp:213.)
+  months = torch.as_tensor(pd.DatetimeIndex(times).month.values)
+[T] EOFs: 60 PCs explain 79.3% (first 3: [0.258, 0.085, 0.074]) [1s]
+[T] K=15: kmeans sizes 1.3-9.6% | bins equal-size
+[T] K=30: kmeans sizes 0.3-5.6% | bins equal-size
+[TPcbrt] EOFs: 60 PCs explain 74.4% (first 3: [0.181, 0.082, 0.062]) [2s]
+[TPcbrt] K=15: kmeans sizes 1.8-9.3% | bins equal-size
+[TPcbrt] K=30: kmeans sizes 0.6-5.3% | bins equal-size
+  File "/home/livia/Documentos/Projetos/climate-clustering-for-ENSO-teleconnections/scripts/review/compare.py", line 104
+    r_level_oni=float(np.corrcoef(lvl_m, o)[0, 1]),
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+SyntaxError: keyword argument repeated: r_level_oni
+FINISHED

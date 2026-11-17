@@ -43,7 +43,11 @@ def read_data(config_file, validation=True):
         lat_lim=params['data']['lat_limit'], lon_lim=params['data']['lon_limit'],
         split_val = validation,
         data_source= params['data']['data_source'],
-        deseason_standardize=params['data'].get('deseason_standardize', False)
+        deseason_standardize=params['data'].get('deseason_standardize', False),
+        var_transform=params['data'].get('var_transform'),
+        npy_dir=params['data'].get('npy_dir'),
+        temporal_agg=params['data'].get('temporal_agg'),
+        remove_spatial_mean=params['data'].get('remove_spatial_mean', False)
     )
 
     if validation:
