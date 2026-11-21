@@ -109,16 +109,23 @@ def composition(sub, k, min_days=5):
     t = np.arange(len(m)); L0 = np.c_[np.ones(len(m)), t]
     res = lambda y, L: y - L @ np.linalg.lstsq(L, y, rcond=None)[0]
     o, a = res(m['ONI'].values, L0), res(m['TNA'].values, L0)
+    # level controls: mean level of the month's extreme days and of all its days (so a sub-regime cannot
+    # win just by being the hotter / colder kind of extreme day)
+    per = dates.to_period('M')
+    lv_ext = pd.Series(lvl[sel], index=per[sel]).groupby(level=0).mean().reindex(m.index).fillna(0).values
+    lv_all = pd.Series(lvl, index=per).groupby(level=0).mean().reindex(m.index).values
+    LV = np.c_[lv_ext, lv_all][keep]
     out = {}
     for nm, x, other in (('ONI', o, a), ('TNA', a, o)):
-        def stat(xx, oo):
-            Lk = np.c_[np.ones(keep.sum()), oo[keep]]
-            return es._corr(res(S, Lk), res(xx[keep], Lk))       # partial on the other index
-        obs = stat(x, other)
-        T = len(x)
-        null = np.stack([stat(np.roll(x, sh), other) for sh in range(1, T) if min(sh, T - sh) >= 24])
-        p = (1 + (np.abs(null).max(1)[:, None] >= np.abs(obs)).sum(0)) / (1 + len(null))
-        out[nm] = (obs, p)
+        for ctl in ('', '+level'):
+            def stat(xx, oo):
+                Lk = np.c_[np.ones(keep.sum()), oo[keep]] if not ctl else np.c_[np.ones(keep.sum()), oo[keep], LV]
+                return es._corr(res(S, Lk), res(xx[keep], Lk))   # partial on the other index (+ levels)
+            obs = stat(x, other)
+            T = len(x)
+            null = np.stack([stat(np.roll(x, sh), other) for sh in range(1, T) if min(sh, T - sh) >= 24])
+            p = (1 + (np.abs(null).max(1)[:, None] >= np.abs(obs)).sum(0)) / (1 + len(null))
+            out[nm + ctl] = (obs, p)
     return out, int(keep.sum())
 
 
@@ -157,10 +164,13 @@ for side in ('warm', 'cold'):
                          + ', '.join(f'{y}:{n}' for y, n in ty.items()) + ' |')
         lines += ['', f'Composition among {side} days ({nmon} months with >= 5 {side} days): partial r of each sub-regime share '
                   'with ONI (controlling TNA) and with TNA (controlling ONI), detrended; p = FWER over sub-regimes', '',
-                  '| sub | share r ONI given TNA (p) | share r TNA given ONI (p) |', '|---|---|---|']
+                  '"+ level": also controlling the mean level of the month\'s extreme days and of all its days', '',
+                  '| sub | mean level | share r ONI given TNA (p) | ... + level (p) | share r TNA given ONI (p) | ... + level (p) |',
+                  '|---|---|---|---|---|---|']
         for j in range(K):
-            lines.append(f'| {side[0].upper()}{j} | {comp["ONI"][0][j]:+.2f} ({comp["ONI"][1][j]:.3f}) | '
-                         f'{comp["TNA"][0][j]:+.2f} ({comp["TNA"][1][j]:.3f}) |')
+            c_ = lambda key: f'{comp[key][0][j]:+.2f} ({comp[key][1][j]:.3f})'
+            lines.append(f'| {side[0].upper()}{j} | {lvl[sel][sub == j].mean():+.2f} | {c_("ONI")} | {c_("ONI+level")} | '
+                         f'{c_("TNA")} | {c_("TNA+level")} |')
         lines.append('')
         fig, ax = plt.subplots(2, K, figsize=(3.6 * K, 6.2), constrained_layout=True)
         for j in range(K):
