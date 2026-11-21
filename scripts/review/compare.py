@@ -68,23 +68,31 @@ for name, ctr, cv, k in sources():
     # Partial test: does regime occupancy carry ENSO information BEYOND the month's
     # domain-mean temperature level? Residualise occupancy and ONI on the monthly
     # mean level (+ intercept), rotate ONI (|shift| >= 24), re-residualise each time.
-    lvl_day = pd.Series(np.concatenate([level[:, 0].numpy(), Xv[:, :2].mean((1, 2, 3)).numpy()]),
-                        index=pd.DatetimeIndex(list(tt) + list(t_v)).to_period('M'))
-    lvl_m = lvl_day.groupby(level=0).mean().reindex(m.index).values
-    Fm = m[[f'f{j}' for j in range(k)]].values.astype(float)
-    Lx = np.c_[np.ones(len(lvl_m)), lvl_m]
-    res = lambda y: y - Lx @ np.linalg.lstsq(Lx, y, rcond=None)[0]
-    Fr, o = res(Fm), m['ONI'].values.astype(float)
-    Tm = len(o)
-    obs_p = es._corr(Fr, res(o))
-    shifts = [s for s in range(1, Tm) if min(s, Tm - s) >= 24]
-    nullp = np.stack([es._corr(Fr, res(np.roll(o, s))) for s in shifts])
-    pf_part = (1 + (np.abs(nullp).max(1)[:, None] >= np.abs(obs_p)).sum(0)) / (1 + len(shifts))
-    stat_p = (obs_p ** 2).sum(); p_omni_part = (1 + ((nullp ** 2).sum(1) >= stat_p).sum()) / (1 + len(shifts))
+    def partial(lvl_tr, lvl_v):
+        """FWER count, max |r| and omnibus p after residualising occupancy and ONI on a monthly level."""
+        lvl_day = pd.Series(np.concatenate([lvl_tr, lvl_v]),
+                            index=pd.DatetimeIndex(list(tt) + list(t_v)).to_period('M'))
+        lvl_m = lvl_day.groupby(level=0).mean().reindex(m.index).values
+        Fm = m[[f'f{j}' for j in range(k)]].values.astype(float)
+        Lx = np.c_[np.ones(len(lvl_m)), lvl_m]
+        res = lambda y: y - Lx @ np.linalg.lstsq(Lx, y, rcond=None)[0]
+        Fr, o = res(Fm), m['ONI'].values.astype(float)
+        Tm = len(o)
+        obs_p = es._corr(Fr, res(o))
+        shifts = [s for s in range(1, Tm) if min(s, Tm - s) >= 24]
+        nullp = np.stack([es._corr(Fr, res(np.roll(o, s))) for s in shifts])
+        pf = (1 + (np.abs(nullp).max(1)[:, None] >= np.abs(obs_p)).sum(0)) / (1 + len(shifts))
+        stat_p = (obs_p ** 2).sum(); p_omni = (1 + ((nullp ** 2).sum(1) >= stat_p).sum()) / (1 + len(shifts))
+        return int((pf < 0.05).sum()), float(np.abs(obs_p).max()), p_omni, float(np.corrcoef(lvl_m, o)[0, 1])
+    # Partial test: does regime occupancy carry ENSO information BEYOND the month's domain-mean
+    # level? Residualise occupancy and ONI on the monthly mean level (+ intercept), rotate ONI
+    # (|shift| >= 24), re-residualise each time. Level = temperature (T) and, separately, precip (P).
+    nF_part, mr_part, p_omni_part, r_lvl = partial(level[:, 0].numpy(), Xv[:, :2].mean((1, 2, 3)).numpy())
+    nF_partP, mr_partP, _, r_lvlP = partial(Pn.mean(1).numpy(), Xv[:, 2].mean((1, 2)).numpy())
     rows.append(dict(
-        r_level_oni=float(np.corrcoef(lvl_m, o)[0, 1]),
-        omni_p_partial=p_omni_part, nFWER_partial=int((pf_part < 0.05).sum()),
-        max_r_partial=float(np.abs(obs_p).max()),
+        r_level_oni=r_lvl, r_levelP_oni=r_lvlP,
+        omni_p_partial=p_omni_part, nFWER_partial=nF_part, max_r_partial=mr_part,
+        nFWER_partialP=nF_partP, max_r_partialP=mr_partP,
         partition=name, K=k, days=len(cid) + len(cv),
         size_min=np.bincount(cid, minlength=k).min() / len(cid) * 100,
         eta2_Tmin=eta2(Tn[:, :Tn.shape[1] // 2], cid, k) * 100,
