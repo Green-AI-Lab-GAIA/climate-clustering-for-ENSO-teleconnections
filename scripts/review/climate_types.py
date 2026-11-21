@@ -18,7 +18,11 @@ Step 3, ENSO: monthly frequency of each type (days of type / days in month), det
 lag 0 and 3 (index leading), partial on TNA; per season; lift in El Nino / La Nina months (index >= 0.5 /
 <= -0.5); secondary: partial r also controlling the month's mean level (how much is intensity).
 p-values: exact circular rotation of the index (|shift| >= 24 months), FWER over the K types.
-usage: .venv/bin/python -I scripts/review/climate_types.py scripts/review <out_dir> [K_ALL] [K_EXT]
+Composites also in physical units: Tmax anomaly in degC and precipitation anomaly in mm/day and in % of the
+calendar-month climatology (raw fields minus the train climatology, per-pixel linear trend removed).
+env: SEASON=DJF|MAM|JJA|SON clusters only that season's days (tests on that season's months);
+     EMB=<prefix> MSN runs results/<prefix>{0,1,2} (default a100-t30_s).
+usage: [SEASON=..] [EMB=..] .venv/bin/python -I scripts/review/climate_types.py scripts/review <out_dir> [K_ALL] [K_EXT]
 """
 import sys, os
 sys.path.insert(0, sys.argv[1])
@@ -33,6 +37,12 @@ out = sys.argv[2]; os.makedirs(out, exist_ok=True)
 K_ALL = int(sys.argv[3]) if len(sys.argv) > 3 else 8
 K_EXT = int(sys.argv[4]) if len(sys.argv) > 4 else 4
 QUANT = 0.2
+SEASON = os.environ.get('SEASON', '')
+EMB = os.environ.get('EMB', 'a100-t30_s')
+SEAS_MONTHS = {'DJF': (12, 1, 2), 'MAM': (3, 4, 5), 'JJA': (6, 7, 8), 'SON': (9, 10, 11)}
+if SEASON or EMB != 'a100-t30_s':
+    out = out.rstrip('/') + (f'_{SEASON}' if SEASON else '') + (f'_{EMB}' if EMB != 'a100-t30_s' else '')
+    os.makedirs(out, exist_ok=True)
 X, Xv, t_tr, t_v = load_fields(('mn2t', 'mx2t', 'tp'), var_transform={'tp': 'cbrt'})
 XA = torch.cat([X, Xv]); ntr = len(X); N = len(XA)
 dates = pd.DatetimeIndex(list(t_tr) + list(t_v))
@@ -41,6 +51,16 @@ D = torch.stack([torch.ones_like(tt), tt], 1)
 coef = torch.linalg.lstsq(D[:ntr], XA[:ntr].reshape(ntr, -1)).solution
 XA = (XA.reshape(N, -1) - D @ coef).reshape(XA.shape)
 del X, Xv
+# physical units: Tmax (degC) and tp (mm/day) anomalies vs the train calendar-month climatology, detrended
+R, Rv, _, _ = load_fields(('mx2t', 'tp'), deseason=False)
+RA = torch.cat([R, Rv]); del R, Rv
+assert len(RA) == N
+mon = torch.as_tensor(dates.month.values) - 1
+clim = torch.stack([RA[:ntr][mon[:ntr] == m].mean(0) for m in range(12)])          # (12, 2, H, W)
+AN = RA - clim[mon]
+cf = torch.linalg.lstsq(D[:ntr], AN[:ntr].reshape(ntr, -1)).solution
+AN = (AN.reshape(N, -1) - D @ cf).reshape(AN.shape)
+del RA
 lvlT = XA[:, :2].mean((1, 2, 3)).numpy(); lvlP = XA[:, 2].mean((1, 2)).numpy()
 per = dates.to_period('M')
 
@@ -78,8 +98,9 @@ L0 = np.c_[np.ones(nm_), t_m]
 tna_d = res(tna, L0)
 mlev = res(np.bincount(mi[mi >= 0], lvlT[mi >= 0], nm_) / days_in, L0)                 # month's mean T level (detrended)
 seasons = {'all': np.ones(nm_, bool)}
-for s_, ms in (('DJF', (12, 1, 2)), ('MAM', (3, 4, 5)), ('JJA', (6, 7, 8)), ('SON', (9, 10, 11))):
+for s_, ms in SEAS_MONTHS.items():
     seasons[s_] = np.isin(months.month, ms)
+BASE = seasons[SEASON] if SEASON else seasons['all']               # months entering every test
 
 
 def rot_test(F, x, mask, C):
@@ -103,8 +124,8 @@ def eof_feats(sel):
 
 
 def msn_feats(seed):
-    E = torch.cat([torch.load(f'results/a100-t30_s{seed}/E.pt', weights_only=False),
-                   torch.load(f'results/a100-t30_s{seed}/E_val.pt', weights_only=False)]).float().cpu().numpy()
+    E = torch.cat([torch.load(f'results/{EMB}{seed}/E.pt', weights_only=False),
+                   torch.load(f'results/{EMB}{seed}/E_val.pt', weights_only=False)]).float().cpu().numpy()
     return E / np.linalg.norm(E, axis=1, keepdims=True)
 
 
@@ -137,9 +158,10 @@ def fit(set_name, sel, k, method, seed):
     km = KMeans(k, n_init=20, random_state=0).fit(E[sel < ntr]); return km.predict(E)
 
 
-q_hi, q_lo = np.quantile(lvlT[:ntr], [1 - QUANT, QUANT])
-sets = {'all': (np.arange(N), K_ALL), 'warm': (np.where(lvlT >= q_hi)[0], K_EXT),
-        'cold': (np.where(lvlT <= q_lo)[0], K_EXT)}
+inseason = np.isin(dates.month, SEAS_MONTHS[SEASON]) if SEASON else np.ones(N, bool)
+q_hi, q_lo = np.quantile(lvlT[:ntr][inseason[:ntr]], [1 - QUANT, QUANT])
+sets = {'all': (np.where(inseason)[0], K_ALL), 'warm': (np.where(inseason & (lvlT >= q_hi))[0], K_EXT),
+        'cold': (np.where(inseason & (lvlT <= q_lo))[0], K_EXT)}
 FE, NPC = {}, {}
 for s_, (sel, _) in sets.items():
     Z, npc, v = eof_feats(sel); FE[s_] = Z; NPC[s_] = (npc, v)
@@ -172,37 +194,42 @@ for s_, (sel, k) in sets.items():
             assert not np.isnan(x0).any(), iname
             xd = res(x0, L0)
             for lag in (0, 3):
-                x = np.roll(xd, lag); mask = np.ones(nm_, bool); mask[:lag] = False
+                x = np.roll(xd, lag); mask = BASE.copy(); mask[:lag] = False
                 R[(iname, lag)] = rot_test(Fm, x, mask, tna_d[:, None])
-            R[(iname, 'lvl')] = rot_test(Fm, xd, np.ones(nm_, bool), np.c_[tna_d, mlev])
+            R[(iname, 'lvl')] = rot_test(Fm, xd, BASE, np.c_[tna_d, mlev])
             for sn in ('DJF', 'MAM', 'JJA', 'SON'):
-                R[(iname, sn)] = rot_test(Fm, xd, seasons[sn], tna_d[:, None])
+                R[(iname, sn)] = rot_test(Fm, xd, seasons[sn], tna_d[:, None]) if (not SEASON or sn == SEASON) \
+                    else (np.full(k, np.nan), np.full(k, np.nan))
             raw = np.stack([np.bincount((lambda v: v[v >= 0])(mi[sel][lab == j]), minlength=nm_) for j in range(k)], 1) / days_in[:, None]
-            R[(iname, 'liftEN')] = raw[x0 >= 0.5].mean(0) / raw.mean(0)
-            R[(iname, 'liftLN')] = raw[x0 <= -0.5].mean(0) / raw.mean(0)
+            R[(iname, 'liftEN')] = raw[(x0 >= 0.5) & BASE].mean(0) / raw[BASE].mean(0)
+            R[(iname, 'liftLN')] = raw[(x0 <= -0.5) & BASE].mean(0) / raw[BASE].mean(0)
         order = np.argsort(-R[('ONI', 0)][0]); rank = np.empty(k, int); rank[order] = np.arange(k)
         P = pattern_corr(Cs[0])
         rl = run_length(lab, sel)
         name = lambda j: f'{s_[0].upper()}{rank[j]}'
         desc = (f'k-means on {NPC[s_][0]} EOFs ({NPC[s_][1]:.0%} var) of z~ (Tmin, Tmax, P), seeds 0-2' if method == 'eof'
-                else 'k-means on MSN t30_s0/s1/s2 embeddings (one per seed)')
+                else f'k-means on MSN {EMB}0/1/2 embeddings (one per seed)')
         lines += [f'## {s_} days / {method}: {desc}', '',
                   f'stability vs seeds 1, 2: ARI {ari[0]:.2f}, {ari[1]:.2f}; composite r per type (min over seeds) shown as "stab"', '',
-                  '| type | days % | T level | P level | DJF/MAM/JJA/SON % | run (d) | stab | max pattern r with another type | '
+                  '| type | days % | T level | P level | Tmax degC | P mm/d | P % | DJF/MAM/JJA/SON % | run (d) | stab | max pattern r with another type | '
                   'r ONI (p) | r ONI lag3 (p) | r ONI +lvl (p) | r RONI (p) | r TNA-ctl seasons ONI: DJF / MAM / JJA / SON | lift EN | lift LN |',
-                  '|' + '---|' * 15]
+                  '|' + '---|' * 18]
         for j in order:
             m_ = lab == j; dd = dates[sel][m_]
             sea = [np.isin(dd.month, ms).mean() * 100 for ms in ((12, 1, 2), (3, 4, 5), (6, 7, 8), (9, 10, 11))]
             other = np.delete(P[j], j); jo = np.delete(np.arange(k), j)[np.argmax(other)]
+            dj = sel[m_]
+            u_t = AN[dj, 0].mean().item(); u_p = AN[dj, 1].mean().item()
+            u_pc = 100 * AN[dj, 1].sum().item() / clim[mon[dj], 1].sum().item()
             f = lambda key: f'{R[key][0][j]:+.2f} ({R[key][1][j]:.3f})'
             sr = ' / '.join(f'{R[("ONI", sn)][0][j]:+.2f}{"*" if R[("ONI", sn)][1][j] < 0.05 else ""}' for sn in ('DJF', 'MAM', 'JJA', 'SON'))
             lines.append(f'| {name(j)} | {m_.mean() * 100:.0f} | {lvlT[sel][m_].mean():+.2f} | {lvlP[sel][m_].mean():+.2f} | '
+                         f'{u_t:+.2f} | {u_p:+.2f} | {u_pc:+.0f} | '
                          + '/'.join(f'{v:.0f}' for v in sea) + f' | {rl[j]:.1f} | {min(stab[0][j], stab[1][j]):.2f} | '
                          f'{other.max():+.2f} ({name(jo)}) | {f(("ONI", 0))} | {f(("ONI", 3))} | {f(("ONI", "lvl"))} | '
                          f'{f(("RONI", 0))} | {sr} | {R[("ONI", "liftEN")][j]:.2f} | {R[("ONI", "liftLN")][j]:.2f} |')
             summary.append(dict(set=s_, method=method, type=name(j), days=m_.mean(), T=lvlT[sel][m_].mean(),
-                                P=lvlP[sel][m_].mean(), r_oni=R[('ONI', 0)][0][j], p_oni=R[('ONI', 0)][1][j],
+                                P=lvlP[sel][m_].mean(), Tmax_C=u_t, P_mmd=u_p, P_pct=u_pc, r_oni=R[('ONI', 0)][0][j], p_oni=R[('ONI', 0)][1][j],
                                 r_oni_lvl=R[('ONI', 'lvl')][0][j], p_oni_lvl=R[('ONI', 'lvl')][1][j],
                                 r_roni=R[('RONI', 0)][0][j], p_roni=R[('RONI', 0)][1][j],
                                 stab=min(stab[0][j], stab[1][j]), max_pattern_r=other.max(), run=rl[j],
@@ -220,7 +247,23 @@ for s_, (sel, k) in sets.items():
                 if c == k - 1: fig.colorbar(im, ax=ax[row, c], label=lab_, shrink=0.8)
         fig.suptitle(f'{s_} days, climate types ({method}); detrended anomalies')
         fig.savefig(f'{out}/types_{s_}_{method}.png', dpi=95); plt.close(fig)
+        fig, ax = plt.subplots(2, k, figsize=(3.2 * k, 5.8), constrained_layout=True)
+        for c, j in enumerate(order):
+            dj = sel[lab == j]
+            tmap = AN[dj, 0].mean(0).numpy()
+            pmap = (100 * AN[dj, 1].sum(0) / clim[mon[dj], 1].sum(0).clamp_min(1e-3)).numpy()
+            for row, (mp_, cmap, lim, lab_) in enumerate(((tmap, 'RdBu_r', 3, 'Tmax anomaly (degC)'),
+                                                          (pmap, 'BrBG', 80, 'precip anomaly (% of climatology)'))):
+                im = ax[row, c].imshow(mp_, cmap=cmap, vmin=-lim, vmax=lim)
+                ax[row, c].set_xticks([]); ax[row, c].set_yticks([])
+                if row == 0:
+                    ax[row, c].set_title(f'{name(j)}: {(lab == j).mean() * 100:.0f}% d, Tmax {AN[dj, 0].mean():+.1f} C\n'
+                                         f'P {100 * AN[dj, 1].sum() / clim[mon[dj], 1].sum():+.0f}%, r ONI {R[("ONI", 0)][0][j]:+.2f}', fontsize=9)
+                if c == k - 1: fig.colorbar(im, ax=ax[row, c], label=lab_, shrink=0.8)
+        fig.suptitle(f'{s_} days{" (" + SEASON + ")" if SEASON else ""}, climate types ({method}), physical units (detrended)')
+        fig.savefig(f'{out}/types_{s_}_{method}_units.png', dpi=95); plt.close(fig)
         print('\n'.join(lines[-(k + 9):]), flush=True)
+        fig = None
 
 open(f'{out}/climate_types.md', 'w').write('\n'.join(lines) + '\n')
 pd.DataFrame(summary).to_csv(f'{out}/climate_types.csv', index=False, float_format='%.3f')
