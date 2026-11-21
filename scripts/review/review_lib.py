@@ -28,7 +28,7 @@ RUNS = {
 
 # A100 runs (Nov 2026, FGV HPC; scripts/review/infer_a100.py, merge_overclusters.py). p10_monthly is
 # monthly (one label per month) and is analysed separately (a100_monthly.py).
-for _r in ('t15_s0', 't15_s1', 't15_s2', 't30_s0', 't30_s1', 't30_s2', 't30_nomean',
+for _r in ('t15_s0', 't15_s1', 't15_s2', 't30_s0', 't30_s1', 't30_s2', 't30_nomean', 't30_nomean_200ep',
            'p30_daily_raw', 'p30_daily_cbrt', 'p30_roll30', 't60_b1024', 't100_b1024',
            't60_b1024-m15', 't60_b1024-m30', 't100_b1024-m15', 't100_b1024-m30'):
     _base = _r.split('-')[0]
