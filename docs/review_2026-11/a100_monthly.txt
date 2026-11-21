@@ -1,0 +1,5 @@
+months 552 (1980-01..2025-12), K=10
+MSN p10_monthly        eta2 field  28.9%  eta2 level  72.4%  omni S 0.18 p=0.002  nFWER 3  max|r| 0.30  sig: 0(-0.16) 3(+0.30) 4(-0.14)
+corr(monthly domain-mean precip anomaly, ONI) = -0.31
+bins of level          eta2 field  20.3%  eta2 level  91.9%  omni S 0.13 p=0.002  nFWER 1  max|r| 0.27  sig: 0(+0.27)
+k-means on EOFs        eta2 field  35.4%  eta2 level  77.1%  omni S 0.20 p=0.002  nFWER 2  max|r| 0.30  sig: 2(+0.30) 3(-0.18)

@@ -26,6 +26,14 @@ RUNS = {
                                  'checkpoint/temp-prep-cbrt-era-amazonia-30-anom-100ep/params-temp-prep-cbrt-era-amazonia-30-anom-100ep.yaml'),
 }
 
+# A100 runs (Nov 2026, FGV HPC; scripts/review/infer_a100.py, merge_overclusters.py). p10_monthly is
+# monthly (one label per month) and is analysed separately (a100_monthly.py).
+for _r in ('t15_s0', 't15_s1', 't15_s2', 't30_s0', 't30_s1', 't30_s2', 't30_nomean',
+           'p30_daily_raw', 'p30_daily_cbrt', 'p30_roll30', 't60_b1024', 't100_b1024',
+           't60_b1024-m15', 't60_b1024-m30', 't100_b1024-m15', 't100_b1024-m30'):
+    _base = _r.split('-')[0]
+    RUNS['A100 ' + _r] = (f'results/a100-{_r}', f'checkpoint/a100-{_base}/params-a100-{_base}.yaml')
+
 DATA_KW = dict(lat_lim=[-18, 5.5], lon_lim=[-74, -44], split_val=True, val_years=(2023, 2024, 2025))
 
 

@@ -85,3 +85,8 @@ Notes:
   analysis notebooks need adapting. `p30_roll30` keeps daily occupancy but neighbouring days share
   29/30 of their window.
 - If the A100 has 40 GB, set `micro_batch_size: 256` for batch 512 (exact gradient caching).
+- Measured on the FGV A100 80 GB (job 150, `t15_s0`): ~2.0 min/epoch (30 it/epoch, batch 512, bf16), 23 GB GPU
+  memory, 93 % utilisation → ~3.3 h per 100-epoch run. Measured end to end (jobs 150–162): 3h04–3h09 per 100-epoch run,
+  6h34 per batch-1024 run (200 epochs), 2h37 for p10_monthly (500 epochs); the whole queue took ~47 h.
+- Bring back only slim best checkpoints (target encoder + prototypes, ~100 MB per run) made by a short
+  batch job; the full -best/-latest/-epN files (430 MB each, ~52 GB in total) stay on the HPC.

@@ -1,0 +1,275 @@
+A100 t15_s0 vs A100 t15_s1: common train days 15706 | ARI=0.388 | same matched cluster: 27.2%
+matched pairs (cosine of composites; centred pattern corr; ONI r A vs B; FWER A/B):
+  A C0  <-> B C14  cos=+0.94  patt=+0.87  ONI r +0.42 vs +0.19  */ 
+  A C6  <-> B C1   cos=+0.83  patt=+0.14  ONI r +0.36 vs -0.01  */ 
+  A C4  <-> B C13  cos=+0.97  patt=+0.32  ONI r +0.19 vs +0.41   /*
+  A C10 <-> B C4   cos=+0.78  patt=+0.75  ONI r +0.06 vs -0.13   / 
+  A C12 <-> B C3   cos=+0.67  patt=+0.65  ONI r +0.05 vs +0.03   / 
+  A C1  <-> B C10  cos=+1.00  patt=+0.99  ONI r +0.00 vs +0.01   / 
+  A C8  <-> B C7   cos=+0.98  patt=+0.78  ONI r -0.01 vs +0.39   /*
+  A C14 <-> B C11  cos=+0.97  patt=+0.41  ONI r -0.10 vs -0.28   /*
+  A C13 <-> B C8   cos=+0.99  patt=+0.99  ONI r -0.12 vs -0.13   / 
+  A C7  <-> B C5   cos=+0.90  patt=+0.80  ONI r -0.15 vs -0.10   / 
+  A C11 <-> B C0   cos=+0.97  patt=+0.82  ONI r -0.16 vs -0.08   / 
+  A C2  <-> B C12  cos=+0.91  patt=+0.95  ONI r -0.20 vs -0.14   / 
+  A C5  <-> B C2   cos=+0.99  patt=+0.75  ONI r -0.21 vs -0.26  */*
+  A C9  <-> B C9   cos=+0.83  patt=+0.77  ONI r -0.26 vs -0.15  */ 
+  A C3  <-> B C6   cos=+0.96  patt=+0.83  ONI r -0.28 vs -0.29  */*
+correlation of per-regime ONI effects across the two models (matched): 0.63
+FWER-significant in A: 5, in B: 5, matched pairs significant in both: 2
+
+A100 t15_s0 vs A100 t15_s2: common train days 15706 | ARI=0.307 | same matched cluster: 26.8%
+matched pairs (cosine of composites; centred pattern corr; ONI r A vs B; FWER A/B):
+  A C0  <-> B C2   cos=+0.98  patt=+0.85  ONI r +0.42 vs +0.24  */*
+  A C6  <-> B C5   cos=+0.97  patt=+0.69  ONI r +0.36 vs -0.05  */ 
+  A C4  <-> B C8   cos=+0.98  patt=+0.34  ONI r +0.19 vs +0.17   / 
+  A C10 <-> B C10  cos=+0.21  patt=+0.77  ONI r +0.06 vs +0.12   / 
+  A C12 <-> B C1   cos=+0.85  patt=+0.83  ONI r +0.05 vs +0.05   / 
+  A C1  <-> B C13  cos=+0.91  patt=+0.58  ONI r +0.00 vs +0.01   / 
+  A C8  <-> B C12  cos=+0.98  patt=+0.85  ONI r -0.01 vs +0.43   /*
+  A C14 <-> B C14  cos=+0.97  patt=+0.75  ONI r -0.10 vs -0.15   / 
+  A C13 <-> B C4   cos=+0.87  patt=+0.89  ONI r -0.12 vs -0.15   / 
+  A C7  <-> B C0   cos=+0.89  patt=+0.77  ONI r -0.15 vs -0.22   / 
+  A C11 <-> B C6   cos=+0.98  patt=+0.86  ONI r -0.16 vs -0.00   / 
+  A C2  <-> B C9   cos=+0.85  patt=+0.96  ONI r -0.20 vs -0.16   / 
+  A C5  <-> B C7   cos=+0.99  patt=+0.83  ONI r -0.21 vs -0.25  */*
+  A C9  <-> B C11  cos=+0.98  patt=+0.99  ONI r -0.26 vs -0.28  */*
+  A C3  <-> B C3   cos=+0.97  patt=+0.77  ONI r -0.28 vs -0.25  */*
+correlation of per-regime ONI effects across the two models (matched): 0.65
+FWER-significant in A: 5, in B: 5, matched pairs significant in both: 4
+
+A100 t15_s1 vs A100 t15_s2: common train days 15706 | ARI=0.343 | same matched cluster: 36.1%
+matched pairs (cosine of composites; centred pattern corr; ONI r A vs B; FWER A/B):
+  A C13 <-> B C12  cos=+0.99  patt=+0.71  ONI r +0.41 vs +0.43  */*
+  A C7  <-> B C8   cos=+0.99  patt=+0.69  ONI r +0.39 vs +0.17  */ 
+  A C14 <-> B C2   cos=+0.97  patt=+0.94  ONI r +0.19 vs +0.24   /*
+  A C3  <-> B C1   cos=+0.74  patt=+0.72  ONI r +0.03 vs +0.05   / 
+  A C10 <-> B C5   cos=+0.99  patt=+0.96  ONI r +0.01 vs -0.05   / 
+  A C1  <-> B C13  cos=+0.90  patt=+0.65  ONI r -0.01 vs +0.01   / 
+  A C0  <-> B C6   cos=+0.97  patt=+0.94  ONI r -0.08 vs -0.00   / 
+  A C5  <-> B C0   cos=+0.89  patt=+0.74  ONI r -0.10 vs -0.22   / 
+  A C8  <-> B C4   cos=+0.89  patt=+0.89  ONI r -0.13 vs -0.15   / 
+  A C4  <-> B C10  cos=+0.18  patt=+0.87  ONI r -0.13 vs +0.12   / 
+  A C12 <-> B C3   cos=+0.93  patt=+0.95  ONI r -0.14 vs -0.25   /*
+  A C9  <-> B C9   cos=+0.95  patt=+0.95  ONI r -0.15 vs -0.16   / 
+  A C2  <-> B C7   cos=+0.98  patt=+0.39  ONI r -0.26 vs -0.25  */*
+  A C11 <-> B C14  cos=+0.93  patt=+0.16  ONI r -0.28 vs -0.15  */ 
+  A C6  <-> B C11  cos=+0.98  patt=+0.94  ONI r -0.29 vs -0.28  */*
+correlation of per-regime ONI effects across the two models (matched): 0.87
+FWER-significant in A: 5, in B: 5, matched pairs significant in both: 3
+
+T15 vs A100 t15_s0: common train days 15706 | ARI=0.607 | same matched cluster: 70.3%
+matched pairs (cosine of composites; centred pattern corr; ONI r A vs B; FWER A/B):
+  A C0  <-> B C6   cos=+0.99  patt=+0.77  ONI r +0.45 vs +0.36  */*
+  A C4  <-> B C0   cos=+0.97  patt=+0.90  ONI r +0.21 vs +0.42  */*
+  A C6  <-> B C4   cos=+0.97  patt=+0.30  ONI r +0.17 vs +0.19   / 
+  A C1  <-> B C1   cos=+0.99  patt=+0.95  ONI r +0.14 vs +0.00   / 
+  A C12 <-> B C12  cos=+0.98  patt=+0.97  ONI r +0.04 vs +0.05   / 
+  A C10 <-> B C10  cos=+0.99  patt=+1.00  ONI r +0.03 vs +0.06   / 
+  A C8  <-> B C8   cos=+0.98  patt=+0.81  ONI r -0.05 vs -0.01   / 
+  A C14 <-> B C14  cos=+1.00  patt=+0.99  ONI r -0.08 vs -0.10   / 
+  A C13 <-> B C13  cos=+0.99  patt=+0.98  ONI r -0.12 vs -0.12   / 
+  A C7  <-> B C7   cos=+0.96  patt=+0.93  ONI r -0.16 vs -0.15   / 
+  A C11 <-> B C11  cos=+0.99  patt=+0.95  ONI r -0.17 vs -0.16   / 
+  A C2  <-> B C2   cos=+1.00  patt=+0.97  ONI r -0.20 vs -0.20   / 
+  A C5  <-> B C5   cos=+1.00  patt=+0.94  ONI r -0.22 vs -0.21  */*
+  A C9  <-> B C9   cos=+1.00  patt=+1.00  ONI r -0.27 vs -0.26  */*
+  A C3  <-> B C3   cos=+1.00  patt=+0.98  ONI r -0.29 vs -0.28  */*
+correlation of per-regime ONI effects across the two models (matched): 0.94
+FWER-significant in A: 5, in B: 5, matched pairs significant in both: 5
+
+A100 t30_s0 vs A100 t30_s1: common train days 15706 | ARI=0.312 | same matched cluster: 30.3%
+matched pairs (cosine of composites; centred pattern corr; ONI r A vs B; FWER A/B):
+  A C6  <-> B C26  cos=+1.00  patt=+0.93  ONI r +0.41 vs +0.43  */*
+  A C0  <-> B C23  cos=+0.97  patt=+0.86  ONI r +0.41 vs +0.31  */*
+  A C19 <-> B C14  cos=+0.98  patt=+0.84  ONI r +0.23 vs +0.14  */ 
+  A C12 <-> B C29  cos=+0.99  patt=+0.84  ONI r +0.18 vs +0.09   / 
+  A C20 <-> B C13  cos=+0.99  patt=+0.99  ONI r +0.15 vs +0.17   / 
+  A C22 <-> B C21  cos=+1.00  patt=+0.98  ONI r +0.11 vs +0.17   / 
+  A C24 <-> B C20  cos=+0.98  patt=+0.72  ONI r +0.11 vs +0.14   / 
+  A C10 <-> B C18  cos=+0.46  patt=+0.39  ONI r +0.08 vs +0.00   / 
+  A C26 <-> B C3   cos=+0.59  patt=+0.55  ONI r +0.04 vs +0.02   / 
+  A C18 <-> B C7   cos=+0.96  patt=+0.73  ONI r -0.01 vs +0.24   /*
+  A C1  <-> B C10  cos=+0.99  patt=+0.98  ONI r -0.03 vs +0.03   / 
+  A C3  <-> B C25  cos=+0.84  patt=+0.74  ONI r -0.03 vs -0.06   / 
+  A C23 <-> B C8   cos=+0.85  patt=+0.89  ONI r -0.03 vs -0.06   / 
+  A C11 <-> B C12  cos=+0.91  patt=+0.92  ONI r -0.05 vs -0.09   / 
+  A C16 <-> B C17  cos=+0.98  patt=+0.97  ONI r -0.06 vs -0.02   / 
+  A C17 <-> B C28  cos=+0.97  patt=+0.95  ONI r -0.07 vs -0.08   / 
+  A C15 <-> B C11  cos=+0.97  patt=+0.37  ONI r -0.08 vs -0.20   / 
+  A C13 <-> B C24  cos=+0.92  patt=+0.90  ONI r -0.09 vs -0.16   / 
+  A C4  <-> B C4   cos=+0.88  patt=+0.85  ONI r -0.11 vs -0.13   / 
+  A C8  <-> B C16  cos=+0.97  patt=+0.86  ONI r -0.13 vs -0.08   / 
+  A C9  <-> B C15  cos=+0.92  patt=+0.88  ONI r -0.14 vs -0.18   / 
+  A C7  <-> B C1   cos=+0.72  patt=+0.97  ONI r -0.14 vs -0.03   / 
+  A C5  <-> B C2   cos=+0.98  patt=+0.87  ONI r -0.15 vs -0.22   /*
+  A C2  <-> B C9   cos=+0.92  patt=+0.88  ONI r -0.15 vs -0.23   /*
+  A C14 <-> B C5   cos=+0.98  patt=+0.84  ONI r -0.15 vs -0.15   / 
+  A C27 <-> B C0   cos=+0.99  patt=+0.96  ONI r -0.16 vs -0.09   / 
+  A C25 <-> B C6   cos=+0.88  patt=+0.80  ONI r -0.20 vs -0.17   / 
+  A C29 <-> B C22  cos=+0.99  patt=+0.88  ONI r -0.22 vs -0.12   / 
+  A C21 <-> B C27  cos=+0.98  patt=+0.73  ONI r -0.22 vs -0.20   / 
+  A C28 <-> B C19  cos=+1.00  patt=+1.00  ONI r -0.25 vs -0.24  */*
+correlation of per-regime ONI effects across the two models (matched): 0.90
+FWER-significant in A: 4, in B: 6, matched pairs significant in both: 3
+
+A100 t30_s0 vs A100 t30_s2: common train days 15706 | ARI=0.328 | same matched cluster: 37.7%
+matched pairs (cosine of composites; centred pattern corr; ONI r A vs B; FWER A/B):
+  A C6  <-> B C13  cos=+1.00  patt=+0.92  ONI r +0.41 vs +0.24  */*
+  A C0  <-> B C12  cos=+1.00  patt=+0.88  ONI r +0.41 vs +0.43  */*
+  A C19 <-> B C2   cos=+0.99  patt=+0.94  ONI r +0.23 vs +0.28  */*
+  A C12 <-> B C10  cos=+0.99  patt=+0.66  ONI r +0.18 vs +0.21   /*
+  A C20 <-> B C4   cos=+0.75  patt=+0.82  ONI r +0.15 vs +0.01   / 
+  A C22 <-> B C9   cos=+0.97  patt=+0.73  ONI r +0.11 vs +0.08   / 
+  A C24 <-> B C8   cos=+0.97  patt=+0.67  ONI r +0.11 vs +0.13   / 
+  A C10 <-> B C17  cos=+0.87  patt=+0.82  ONI r +0.08 vs +0.14   / 
+  A C26 <-> B C1   cos=+0.44  patt=+0.40  ONI r +0.04 vs -0.08   / 
+  A C18 <-> B C23  cos=+0.90  patt=+0.81  ONI r -0.01 vs -0.09   / 
+  A C1  <-> B C15  cos=+0.95  patt=+0.86  ONI r -0.03 vs -0.00   / 
+  A C3  <-> B C3   cos=+0.86  patt=+0.80  ONI r -0.03 vs +0.07   / 
+  A C23 <-> B C25  cos=+0.96  patt=+0.96  ONI r -0.03 vs +0.00   / 
+  A C11 <-> B C22  cos=+0.99  patt=+0.99  ONI r -0.05 vs -0.04   / 
+  A C16 <-> B C20  cos=+0.98  patt=+0.96  ONI r -0.06 vs -0.03   / 
+  A C17 <-> B C21  cos=+0.95  patt=+0.96  ONI r -0.07 vs -0.07   / 
+  A C15 <-> B C6   cos=+0.99  patt=+0.86  ONI r -0.08 vs -0.07   / 
+  A C13 <-> B C29  cos=+0.90  patt=+0.90  ONI r -0.09 vs -0.13   / 
+  A C4  <-> B C0   cos=+0.84  patt=+0.86  ONI r -0.11 vs -0.21   / 
+  A C8  <-> B C5   cos=+0.95  patt=+0.69  ONI r -0.13 vs -0.03   / 
+  A C9  <-> B C19  cos=+0.66  patt=+0.91  ONI r -0.14 vs +0.07   / 
+  A C7  <-> B C26  cos=+0.82  patt=+0.82  ONI r -0.14 vs -0.17   / 
+  A C5  <-> B C24  cos=+0.98  patt=+0.81  ONI r -0.15 vs -0.24   /*
+  A C2  <-> B C18  cos=+0.95  patt=+0.96  ONI r -0.15 vs -0.14   / 
+  A C14 <-> B C16  cos=+0.97  patt=+0.78  ONI r -0.15 vs -0.08   / 
+  A C27 <-> B C14  cos=+0.96  patt=+0.81  ONI r -0.16 vs -0.14   / 
+  A C25 <-> B C11  cos=+0.98  patt=+0.95  ONI r -0.20 vs -0.23   /*
+  A C29 <-> B C28  cos=+0.96  patt=+0.57  ONI r -0.22 vs -0.16   / 
+  A C21 <-> B C27  cos=+0.99  patt=+0.91  ONI r -0.22 vs -0.21   / 
+  A C28 <-> B C7   cos=+0.99  patt=+0.83  ONI r -0.25 vs -0.23  */*
+correlation of per-regime ONI effects across the two models (matched): 0.89
+FWER-significant in A: 4, in B: 7, matched pairs significant in both: 4
+
+A100 t30_s1 vs A100 t30_s2: common train days 15706 | ARI=0.331 | same matched cluster: 45.8%
+matched pairs (cosine of composites; centred pattern corr; ONI r A vs B; FWER A/B):
+  A C26 <-> B C12  cos=+1.00  patt=+0.98  ONI r +0.43 vs +0.43  */*
+  A C23 <-> B C2   cos=+1.00  patt=+0.99  ONI r +0.31 vs +0.28  */*
+  A C7  <-> B C10  cos=+1.00  patt=+0.89  ONI r +0.24 vs +0.21  */*
+  A C21 <-> B C13  cos=+1.00  patt=+0.99  ONI r +0.17 vs +0.24   /*
+  A C13 <-> B C3   cos=+0.72  patt=+0.84  ONI r +0.17 vs +0.07   / 
+  A C14 <-> B C17  cos=+0.89  patt=+0.68  ONI r +0.14 vs +0.14   / 
+  A C20 <-> B C8   cos=+0.99  patt=+0.95  ONI r +0.14 vs +0.13   / 
+  A C29 <-> B C9   cos=+0.99  patt=+0.89  ONI r +0.09 vs +0.08   / 
+  A C10 <-> B C15  cos=+0.97  patt=+0.92  ONI r +0.03 vs -0.00   / 
+  A C3  <-> B C19  cos=+0.55  patt=+0.61  ONI r +0.02 vs +0.07   / 
+  A C18 <-> B C25  cos=+0.90  patt=+0.89  ONI r +0.00 vs +0.00   / 
+  A C17 <-> B C20  cos=+0.97  patt=+0.95  ONI r -0.02 vs -0.03   / 
+  A C1  <-> B C26  cos=+0.43  patt=+0.75  ONI r -0.03 vs -0.17   / 
+  A C8  <-> B C29  cos=+0.85  patt=+0.92  ONI r -0.06 vs -0.13   / 
+  A C25 <-> B C4   cos=+0.96  patt=+0.98  ONI r -0.06 vs +0.01   / 
+  A C28 <-> B C21  cos=+0.97  patt=+0.99  ONI r -0.08 vs -0.07   / 
+  A C16 <-> B C5   cos=+0.98  patt=+0.88  ONI r -0.08 vs -0.03   / 
+  A C0  <-> B C6   cos=+1.00  patt=+0.97  ONI r -0.09 vs -0.07   / 
+  A C12 <-> B C22  cos=+0.88  patt=+0.89  ONI r -0.09 vs -0.04   / 
+  A C22 <-> B C16  cos=+0.99  patt=+0.97  ONI r -0.12 vs -0.08   / 
+  A C4  <-> B C14  cos=+0.83  patt=+0.84  ONI r -0.13 vs -0.14   / 
+  A C5  <-> B C1   cos=+0.71  patt=+0.07  ONI r -0.15 vs -0.08   / 
+  A C24 <-> B C23  cos=+0.79  patt=+0.55  ONI r -0.16 vs -0.09   / 
+  A C6  <-> B C28  cos=+0.95  patt=+0.47  ONI r -0.17 vs -0.16   / 
+  A C15 <-> B C0   cos=+0.92  patt=+0.82  ONI r -0.18 vs -0.21   / 
+  A C11 <-> B C7   cos=+0.99  patt=+0.86  ONI r -0.20 vs -0.23   /*
+  A C27 <-> B C27  cos=+0.98  patt=+0.80  ONI r -0.20 vs -0.21   / 
+  A C2  <-> B C18  cos=+0.88  patt=+0.88  ONI r -0.22 vs -0.14  */ 
+  A C9  <-> B C11  cos=+0.97  patt=+0.97  ONI r -0.23 vs -0.23  */*
+  A C19 <-> B C24  cos=+1.00  patt=+0.99  ONI r -0.24 vs -0.24  */*
+correlation of per-regime ONI effects across the two models (matched): 0.95
+FWER-significant in A: 6, in B: 7, matched pairs significant in both: 5
+
+T30 vs A100 t30_s0: common train days 15706 | ARI=0.427 | same matched cluster: 54.2%
+matched pairs (cosine of composites; centred pattern corr; ONI r A vs B; FWER A/B):
+  A C19 <-> B C6   cos=+1.00  patt=+0.87  ONI r +0.42 vs +0.41  */*
+  A C0  <-> B C0   cos=+0.99  patt=+0.83  ONI r +0.28 vs +0.41  */*
+  A C6  <-> B C12  cos=+1.00  patt=+0.92  ONI r +0.22 vs +0.18  */ 
+  A C22 <-> B C22  cos=+1.00  patt=+0.98  ONI r +0.20 vs +0.11   / 
+  A C20 <-> B C20  cos=+0.99  patt=+0.99  ONI r +0.17 vs +0.15   / 
+  A C24 <-> B C19  cos=+0.98  patt=+0.82  ONI r +0.13 vs +0.23   /*
+  A C10 <-> B C10  cos=+0.97  patt=+0.99  ONI r +0.12 vs +0.08   / 
+  A C12 <-> B C24  cos=+0.99  patt=+0.73  ONI r +0.12 vs +0.11   / 
+  A C26 <-> B C26  cos=+0.72  patt=+0.70  ONI r +0.03 vs +0.04   / 
+  A C18 <-> B C1   cos=+0.95  patt=+0.86  ONI r -0.02 vs -0.03   / 
+  A C1  <-> B C8   cos=+0.97  patt=+0.84  ONI r -0.04 vs -0.13   / 
+  A C23 <-> B C23  cos=+0.81  patt=+0.81  ONI r -0.04 vs -0.03   / 
+  A C3  <-> B C3   cos=+0.84  patt=+0.71  ONI r -0.06 vs -0.03   / 
+  A C27 <-> B C15  cos=+1.00  patt=+0.93  ONI r -0.06 vs -0.08   / 
+  A C4  <-> B C4   cos=+0.89  patt=+0.86  ONI r -0.06 vs -0.11   / 
+  A C11 <-> B C11  cos=+0.98  patt=+1.00  ONI r -0.07 vs -0.05   / 
+  A C16 <-> B C16  cos=+0.99  patt=+0.97  ONI r -0.09 vs -0.06   / 
+  A C13 <-> B C13  cos=+0.99  patt=+0.99  ONI r -0.10 vs -0.09   / 
+  A C9  <-> B C9   cos=+0.97  patt=+0.99  ONI r -0.11 vs -0.14   / 
+  A C7  <-> B C7   cos=+0.96  patt=+0.98  ONI r -0.12 vs -0.14   / 
+  A C8  <-> B C18  cos=+0.93  patt=+0.68  ONI r -0.15 vs -0.01   / 
+  A C2  <-> B C2   cos=+0.97  patt=+0.97  ONI r -0.15 vs -0.15   / 
+  A C5  <-> B C5   cos=+0.98  patt=+0.95  ONI r -0.17 vs -0.15   / 
+  A C29 <-> B C29  cos=+0.99  patt=+0.82  ONI r -0.17 vs -0.22   / 
+  A C14 <-> B C14  cos=+0.99  patt=+0.92  ONI r -0.17 vs -0.15   / 
+  A C17 <-> B C17  cos=+0.86  patt=+0.85  ONI r -0.18 vs -0.07   / 
+  A C21 <-> B C21  cos=+0.94  patt=-0.07  ONI r -0.20 vs -0.22  */ 
+  A C15 <-> B C27  cos=+1.00  patt=+0.99  ONI r -0.20 vs -0.16  */ 
+  A C25 <-> B C25  cos=+1.00  patt=+1.00  ONI r -0.22 vs -0.20  */ 
+  A C28 <-> B C28  cos=+1.00  patt=+1.00  ONI r -0.25 vs -0.25  */*
+correlation of per-regime ONI effects across the two models (matched): 0.95
+FWER-significant in A: 7, in B: 4, matched pairs significant in both: 3
+
+A100 t60_b1024-m15 vs A100 t15_s0: common train days 15706 | ARI=0.301 | same matched cluster: 27.2%
+matched pairs (cosine of composites; centred pattern corr; ONI r A vs B; FWER A/B):
+  A C5  <-> B C0   cos=+1.00  patt=+0.95  ONI r +0.45 vs +0.42  */*
+  A C7  <-> B C4   cos=+0.97  patt=+0.33  ONI r +0.21 vs +0.19  */ 
+  A C6  <-> B C1   cos=+0.66  patt=+0.45  ONI r +0.16 vs +0.00   / 
+  A C4  <-> B C6   cos=+0.99  patt=+0.80  ONI r +0.12 vs +0.36   /*
+  A C8  <-> B C8   cos=+0.48  patt=+0.64  ONI r +0.02 vs -0.01   / 
+  A C14 <-> B C7   cos=+0.82  patt=+0.59  ONI r -0.03 vs -0.15   / 
+  A C12 <-> B C9   cos=+0.68  patt=+0.70  ONI r -0.04 vs -0.26   /*
+  A C10 <-> B C12  cos=+0.96  patt=+0.95  ONI r -0.05 vs +0.05   / 
+  A C9  <-> B C10  cos=+0.67  patt=+0.62  ONI r -0.06 vs +0.06   / 
+  A C13 <-> B C14  cos=+0.86  patt=+0.25  ONI r -0.09 vs -0.10   / 
+  A C1  <-> B C5   cos=+0.99  patt=+0.84  ONI r -0.09 vs -0.21   /*
+  A C11 <-> B C13  cos=+0.90  patt=+0.90  ONI r -0.19 vs -0.12   / 
+  A C0  <-> B C3   cos=+0.99  patt=+0.70  ONI r -0.23 vs -0.28  */*
+  A C3  <-> B C11  cos=+0.91  patt=+0.42  ONI r -0.29 vs -0.16  */ 
+  A C2  <-> B C2   cos=+0.97  patt=+0.78  ONI r -0.30 vs -0.20  */ 
+correlation of per-regime ONI effects across the two models (matched): 0.82
+FWER-significant in A: 5, in B: 5, matched pairs significant in both: 2
+
+A100 t100_b1024-m30 vs A100 t30_s1: common train days 15706 | ARI=0.267 | same matched cluster: 26.4%
+matched pairs (cosine of composites; centred pattern corr; ONI r A vs B; FWER A/B):
+  A C12 <-> B C26  cos=+1.00  patt=+0.97  ONI r +0.42 vs +0.43  */*
+  A C13 <-> B C23  cos=+0.99  patt=+0.92  ONI r +0.29 vs +0.31  */*
+  A C16 <-> B C21  cos=+0.99  patt=+0.82  ONI r +0.29 vs +0.17  */ 
+  A C15 <-> B C25  cos=+0.96  patt=+0.93  ONI r +0.18 vs -0.06   / 
+  A C14 <-> B C14  cos=+0.70  patt=+0.76  ONI r +0.11 vs +0.14   / 
+  A C17 <-> B C7   cos=+0.88  patt=+0.50  ONI r +0.10 vs +0.24   /*
+  A C18 <-> B C20  cos=+1.00  patt=+0.97  ONI r +0.07 vs +0.14   / 
+  A C25 <-> B C29  cos=+1.00  patt=+0.96  ONI r +0.04 vs +0.09   / 
+  A C19 <-> B C9   cos=+0.77  patt=+0.62  ONI r +0.02 vs -0.23   /*
+  A C0  <-> B C4   cos=+0.87  patt=+0.93  ONI r +0.00 vs -0.13   / 
+  A C28 <-> B C10  cos=+0.91  patt=+0.76  ONI r -0.02 vs +0.03   / 
+  A C24 <-> B C16  cos=+0.98  patt=+0.87  ONI r -0.02 vs -0.08   / 
+  A C3  <-> B C3   cos=+0.55  patt=+0.45  ONI r -0.02 vs +0.02   / 
+  A C26 <-> B C18  cos=+0.87  patt=+0.86  ONI r -0.03 vs +0.00   / 
+  A C29 <-> B C1   cos=+0.92  patt=+0.90  ONI r -0.04 vs -0.03   / 
+  A C21 <-> B C28  cos=+0.97  patt=+0.96  ONI r -0.06 vs -0.08   / 
+  A C20 <-> B C13  cos=+0.82  patt=+0.78  ONI r -0.06 vs +0.17   / 
+  A C27 <-> B C24  cos=+0.89  patt=+0.86  ONI r -0.10 vs -0.16   / 
+  A C6  <-> B C0   cos=+1.00  patt=+0.99  ONI r -0.11 vs -0.09   / 
+  A C5  <-> B C2   cos=+0.89  patt=+0.89  ONI r -0.13 vs -0.22   /*
+  A C2  <-> B C15  cos=+0.90  patt=+0.73  ONI r -0.13 vs -0.18   / 
+  A C22 <-> B C12  cos=+0.91  patt=+0.91  ONI r -0.18 vs -0.09   / 
+  A C23 <-> B C8   cos=+0.78  patt=+0.82  ONI r -0.19 vs -0.06   / 
+  A C4  <-> B C27  cos=+0.92  patt=+0.87  ONI r -0.20 vs -0.20   / 
+  A C10 <-> B C11  cos=+0.99  patt=+0.67  ONI r -0.20 vs -0.20   / 
+  A C7  <-> B C17  cos=+0.96  patt=+0.80  ONI r -0.20 vs -0.02   / 
+  A C1  <-> B C5   cos=+0.94  patt=+0.61  ONI r -0.20 vs -0.15   / 
+  A C11 <-> B C22  cos=+0.99  patt=+0.88  ONI r -0.20 vs -0.12   / 
+  A C8  <-> B C19  cos=+1.00  patt=+0.99  ONI r -0.23 vs -0.24  */*
+  A C9  <-> B C6   cos=+0.95  patt=+0.80  ONI r -0.24 vs -0.17  */ 
+correlation of per-regime ONI effects across the two models (matched): 0.80
+FWER-significant in A: 5, in B: 6, matched pairs significant in both: 3
+

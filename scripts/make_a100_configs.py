@@ -33,6 +33,9 @@ RUNS = {
     # C. Pattern-only input: subtract each day's domain mean after the z-score (review: ~85 % of MSN
     #    separation is the domain-mean level). Tests whether pattern regimes carry ENSO signal.
     't30_nomean': ('T30 on pattern-only fields (domain mean removed)', dict(K=30, remove_spatial_mean=True)),
+    # t30_nomean was still improving at epoch 100. Resuming it with more epochs would restart the cosine
+    # LR/momentum/sharpen schedules mid-way (T_max = 1.25 * epochs), so train a fresh 200-epoch run instead.
+    't30_nomean_200ep': ('T30 pattern-only, 200 epochs', dict(K=30, remove_spatial_mean=True, epochs=200, warmup=30)),
     # D. Precipitation only.
     'p30_daily_raw': ('P30 daily tp, same z-score as temperature (control)', dict(K=30, vars=PREC)),
     'p30_daily_cbrt': ('P30 daily tp, cube root before the z-score', dict(K=30, vars=PREC, var_transform={'tp': 'cbrt'})),

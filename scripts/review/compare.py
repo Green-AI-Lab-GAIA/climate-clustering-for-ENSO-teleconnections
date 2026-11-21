@@ -50,7 +50,7 @@ for name, ctr, cv, k in sources():
     if only and name not in only:
         continue
     off = len(t_tr) - len(ctr)                         # the paper run starts in 1981
-    assert off in (0, 366), (name, off)
+    assert off in (0, 29, 366), (name, off)   # 29: trailing 30-day sum
     Tn, Pn, tt = T[off:], P[off:], t_tr[off:]
     cid = np.asarray(ctr)
     level = Tn.mean(1, keepdim=True)
