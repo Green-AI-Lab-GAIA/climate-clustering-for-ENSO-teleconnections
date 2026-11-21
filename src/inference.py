@@ -25,10 +25,12 @@ def read_data(config_file, validation=True):
     # Replaces RandomResizedCrop so that encoding a given day is reproducible
     # (otherwise the cached E/F/E_val/F_val tensors and t-SNE/PCA/UMAP plots
     # change across runs even with a fixed model checkpoint).
+    # data.eval_full_field: squeeze the whole domain to crop_size x crop_size instead of the
+    # centre crop (which keeps only ~61 % of the 94 x 120 Amazonia grid).
     crop_size = params['data'].get('rand_size', 128)
-    val_transform = transforms.Compose([
-        transforms.Resize(int(crop_size / 0.875)),
-        transforms.CenterCrop(crop_size),
+    spatial = ([transforms.Resize((crop_size, crop_size))] if params['data'].get('eval_full_field', False)
+               else [transforms.Resize(int(crop_size / 0.875)), transforms.CenterCrop(crop_size)])
+    val_transform = transforms.Compose(spatial + [
         transforms.Normalize(
             params['data']['norm_means'], #'Tmin', 'Tmax',
             params['data']['norm_stds'])
@@ -47,7 +49,8 @@ def read_data(config_file, validation=True):
         var_transform=params['data'].get('var_transform'),
         npy_dir=params['data'].get('npy_dir'),
         temporal_agg=params['data'].get('temporal_agg'),
-        remove_spatial_mean=params['data'].get('remove_spatial_mean', False)
+        remove_spatial_mean=params['data'].get('remove_spatial_mean', False),
+        detrend=params['data'].get('detrend', False)
     )
 
     if validation:

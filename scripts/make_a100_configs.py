@@ -19,9 +19,10 @@ NPY_DIR = '../data/era5_npy/amazonia_daily'   # where the exported folder is unp
 
 TEMP = dict(surf_vars=['mn2t', 'mx2t'], model='deit_small_temperature')
 PREC = dict(surf_vars=['tp'], model='deit_small_precipitation')
+TP = dict(surf_vars=['mn2t', 'mx2t', 'tp'], model='deit_small_temp_prep')
 
 # name -> (description, overrides). Overrides: K, batch, micro, epochs, warmup, lr, seed,
-# vars (TEMP/PREC), var_transform, temporal_agg, remove_spatial_mean.
+# vars (TEMP/PREC/TP), var_transform, temporal_agg, remove_spatial_mean, detrend, eval_full_field.
 RUNS = {
     # A. Replication on clean full-batch BN: the paper needs >1 seed per configuration.
     **{f't15_s{s}': (f'T15 replication, seed {s}', dict(K=15, seed=s)) for s in (0, 1, 2)},
@@ -44,6 +45,11 @@ RUNS = {
     # Calendar-month sums: only 516 train months, so small batch, fewer prototypes, more epochs.
     'p10_monthly': ('P10 calendar-month tp sum per pixel, one sample per month',
                     dict(K=10, vars=PREC, temporal_agg={'kind': 'monthly'}, batch=128, epochs=500, warmup=50)),
+    # E. Matched to the EOF k-means "climate types" (REVIEW §14.9-14.11): Tmin + Tmax + cbrt(tp), z-scored,
+    #    per-pixel linear trend removed, NO daily-mean removal, encoded on the full field (no centre crop).
+    **{f'tp30_detr_s{s}': (f'TP30 detrended full-field anomalies, seed {s}',
+                           dict(K=30, vars=TP, var_transform={'tp': 'cbrt'}, detrend=True, eval_full_field=True, seed=s))
+       for s in (0, 1, 2)},
 }
 
 
@@ -57,7 +63,7 @@ def build(name, desc, o):
     d = c['data']
     d.update(surf_vars=v['surf_vars'], npy_dir=NPY_DIR,
              norm_means=[0.0] * len(v['surf_vars']), norm_stds=[1.0] * len(v['surf_vars']))
-    for k in ('var_transform', 'temporal_agg', 'remove_spatial_mean'):
+    for k in ('var_transform', 'temporal_agg', 'remove_spatial_mean', 'detrend', 'eval_full_field'):
         if k in o:
             d[k] = o[k]
     # load_checkpoint 'auto': a requeued Slurm job (node reboot) resumes from -latest.

@@ -42,6 +42,7 @@ def init_data(
     npy_dir=None,
     temporal_agg=None,
     remove_spatial_mean=False,
+    detrend=False,
     seed=0
 ):
 
@@ -54,7 +55,8 @@ def init_data(
                               var_transform=var_transform,
                               npy_dir=npy_dir,
                               temporal_agg=temporal_agg,
-                              remove_spatial_mean=remove_spatial_mean)
+                              remove_spatial_mean=remove_spatial_mean,
+                              detrend=detrend)
 
     else:
         dataset = BrazilWeatherDataset( transform=transform,
@@ -295,8 +297,14 @@ class Era5Dataset(torch.utils.data.Dataset):
                  var_transform=None,
                  npy_dir=None,
                  temporal_agg=None,
-                 remove_spatial_mean=False):
+                 remove_spatial_mean=False,
+                 detrend=False):
         self.transform = transform
+        # detrend: after the z-score, remove a per-cell, per-channel linear trend in time
+        # (fitted on TRAIN samples only, extrapolated to validation), so "warm" means warm
+        # for its time rather than recent (the z-scored anomalies keep the warming trend,
+        # about +0.15 sigma/decade for temperature). Applied before remove_spatial_mean.
+        self.detrend = detrend
         # npy_dir: folder written by scripts/export_training_data.py (one (T, H, W)
         # float32 .npy per variable + times.npy). Replaces reading the netCDF files,
         # so a machine only needs that folder. Values are the same raw daily cache
@@ -491,6 +499,21 @@ class Era5Dataset(torch.utils.data.Dataset):
             if validation is not None:
                 validation = self._apply_monthly_cell_zscore(validation, self.val_time, mu, sigma)
             logger.info('applied per-month per-cell deseasonalised standardisation (anomalies)')
+
+        if self.detrend:
+            t0 = pd.DatetimeIndex(self.time)[0]
+            dec = lambda tt: torch.as_tensor((pd.DatetimeIndex(tt) - t0).days.values / 3652.5, dtype=torch.float32)
+            design = lambda tt: torch.stack([torch.ones(len(tt)), dec(tt)], 1)
+            D = design(self.time)
+            n = len(x_surf)
+            coef = torch.linalg.lstsq(D, x_surf.reshape(n, -1).float()).solution      # (2, V*H*W)
+            self.trend_coef = coef.reshape(2, *x_surf.shape[1:])
+            x_surf = (x_surf.reshape(n, -1) - D @ coef).reshape(x_surf.shape)
+            if validation is not None:
+                nv = len(validation)
+                validation = (validation.reshape(nv, -1) - design(self.val_time) @ coef).reshape(validation.shape)
+            logger.info(f'removed per-cell linear trend; mean slope per channel (units/decade): '
+                        f'{self.trend_coef[1].mean(dim=(1, 2)).tolist()}')
 
         if self.remove_spatial_mean:
             x_surf = x_surf - x_surf.mean(dim=(2, 3), keepdim=True)

@@ -210,6 +210,7 @@ def main(args):
     npy_dir = args['data'].get('npy_dir')  # exported .npy folder instead of netCDF
     temporal_agg = args['data'].get('temporal_agg')  # e.g. {'kind': 'rolling', 'window': 30}
     remove_spatial_mean = args['data'].get('remove_spatial_mean', False)
+    detrend = args['data'].get('detrend', False)
     # --
 
     # -- OPTIMIZATION
@@ -341,6 +342,7 @@ def main(args):
         npy_dir=npy_dir,
         temporal_agg=temporal_agg,
         remove_spatial_mean=remove_spatial_mean,
+        detrend=detrend,
         seed=seed
          )
     ipe = len(unsupervised_loader)
