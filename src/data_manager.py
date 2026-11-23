@@ -96,8 +96,23 @@ def make_transforms(
     rand_views=2,
     focal_views=10,
     norm_means=None,
-    norm_stds=None
+    norm_stds=None,
+    view_mode='crop',
+    view_noise=0.0
 ):
+    # view_mode 'crop' (default, MSN): random resized crops (rand + focal views), i.e. the model learns
+    # invariance to where and at what scale a pattern sits. 'full': every view is the whole field resized to
+    # rand_size x rand_size (geography kept); views differ only by patch masking (data.patch_drop, applied to the
+    # anchor view in the encoder) and optional Gaussian noise (view_noise, in z-score units). Use focal_views: 0.
+    if view_mode == 'full':
+        steps = [transforms.Resize((rand_size, rand_size))]
+        if view_noise > 0:
+            steps.append(AddGaussianNoise(view_noise))
+        rand_transform = transforms.Compose(steps + [transforms.Normalize(norm_means, norm_stds)])
+        return MultiViewTransform(rand_transform=rand_transform, focal_transform=None,
+                                  rand_views=rand_views, focal_views=0)
+    if view_mode != 'crop':
+        raise ValueError(f"view_mode must be 'crop' or 'full', got {view_mode!r}")
 
     rand_transform = transforms.Compose([
         transforms.RandomResizedCrop(rand_size, scale=rand_crop_scale),
@@ -122,6 +137,16 @@ def make_transforms(
     )
     
     return transform
+
+
+class AddGaussianNoise(object):
+    """x + std * N(0, 1), elementwise (picklable, for DataLoader workers)."""
+
+    def __init__(self, std):
+        self.std = std
+
+    def __call__(self, x):
+        return x + self.std * torch.randn_like(x)
 
 
 class MultiViewTransform(object):

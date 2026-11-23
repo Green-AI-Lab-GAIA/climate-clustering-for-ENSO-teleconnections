@@ -316,6 +316,8 @@ def main(args):
         focal_views=focal_views,
         norm_means=tuple(norm_means),
         norm_stds=tuple(norm_stds),
+        view_mode=args['data'].get('view_mode', 'crop'),
+        view_noise=args['data'].get('view_noise', 0.0),
         )
 
     # -- init data-loaders/samplers

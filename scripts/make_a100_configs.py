@@ -50,6 +50,16 @@ RUNS = {
     **{f'tp30_detr_s{s}': (f'TP30 detrended full-field anomalies, seed {s}',
                            dict(K=30, vars=TP, var_transform={'tp': 'cbrt'}, detrend=True, eval_full_field=True, seed=s))
        for s in (0, 1, 2)},
+    # F. Same input as E, but views keep the geography: no random crops / rescaling, the whole field in every view,
+    #    anchor differs from target only by patch masking (patch_drop 0.5) and small noise. One seed; K = 30 and an
+    #    over-clustering K = 60 (batch 1024, 200 epochs = same number of steps) to be merged by k-means afterwards.
+    'tp30_mask': ('TP30 detrended, full-field views, masking only (no crops)',
+                  dict(K=30, vars=TP, var_transform={'tp': 'cbrt'}, detrend=True, eval_full_field=True,
+                       view_mode='full', view_noise=0.05, focal_views=0, patch_drop=0.5)),
+    'tp60_mask': ('TP60 detrended, full-field views, masking only (no crops), batch 1024',
+                  dict(K=60, vars=TP, var_transform={'tp': 'cbrt'}, detrend=True, eval_full_field=True,
+                       view_mode='full', view_noise=0.05, focal_views=0, patch_drop=0.5,
+                       batch=1024, micro=1024, epochs=200, warmup=30)),
 }
 
 
@@ -63,7 +73,8 @@ def build(name, desc, o):
     d = c['data']
     d.update(surf_vars=v['surf_vars'], npy_dir=NPY_DIR,
              norm_means=[0.0] * len(v['surf_vars']), norm_stds=[1.0] * len(v['surf_vars']))
-    for k in ('var_transform', 'temporal_agg', 'remove_spatial_mean', 'detrend', 'eval_full_field'):
+    for k in ('var_transform', 'temporal_agg', 'remove_spatial_mean', 'detrend', 'eval_full_field',
+              'view_mode', 'view_noise', 'focal_views', 'patch_drop'):
         if k in o:
             d[k] = o[k]
     # load_checkpoint 'auto': a requeued Slurm job (node reboot) resumes from -latest.
