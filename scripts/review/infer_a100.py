@@ -3,18 +3,20 @@
 usage: .venv/bin/python scripts/review/infer_a100.py [runs...]   (default: every checkpoint/a100-*)
 Uses the slim checkpoints brought back from the HPC (<tag>-best-slim.pth.tar: target_encoder +
 prototypes only). Skips runs whose results already exist.
+env CKPT=latest uses <tag>-latest-slim.pth.tar and writes results/a100-<run>_latest.
 """
 import glob, os, sys
 sys.path.insert(0, '.')
 import src.inference as inf
 
+CKPT = os.environ.get('CKPT', 'best')
 runs = sys.argv[1:] or sorted(os.path.basename(d)[5:] for d in glob.glob('checkpoint/a100-*'))
 for run in runs:
-    out = f'results/a100-{run}'
+    out = f'results/a100-{run}' + ('' if CKPT == 'best' else f'_{CKPT}')
     if os.path.exists(f'{out}/F_val.pt'):
         print('skip', run); continue
     params, dataset = inf.read_data(f'checkpoint/a100-{run}/params-a100-{run}.yaml', validation=True)
-    enc, prot = inf.load_model(params, model_suffix='-best-slim.pth.tar')
+    enc, prot = inf.load_model(params, model_suffix=f'-{CKPT}-slim.pth.tar')
     inf.get_model_results(read_path=out, params=params, dataset=dataset, encoder=enc, prototypes=prot)
     inf.get_model_results(read_path=out, params=params, dataset=dataset.validation_imgs,
                           encoder=enc, prototypes=prot, validation=True)
