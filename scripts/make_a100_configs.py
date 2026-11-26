@@ -22,7 +22,7 @@ PREC = dict(surf_vars=['tp'], model='deit_small_precipitation')
 TP = dict(surf_vars=['mn2t', 'mx2t', 'tp'], model='deit_small_temp_prep')
 
 # name -> (description, overrides). Overrides: K, batch, micro, epochs, warmup, lr, seed,
-# vars (TEMP/PREC/TP), var_transform, temporal_agg, remove_spatial_mean, detrend, eval_full_field.
+# vars (TEMP/PREC/TP), crit (criterion keys), var_transform, temporal_agg, remove_spatial_mean, detrend, eval_full_field.
 RUNS = {
     # A. Replication on clean full-batch BN: the paper needs >1 seed per configuration.
     **{f't15_s{s}': (f'T15 replication, seed {s}', dict(K=15, seed=s)) for s in (0, 1, 2)},
@@ -60,6 +60,15 @@ RUNS = {
                   dict(K=60, vars=TP, var_transform={'tp': 'cbrt'}, detrend=True, eval_full_field=True,
                        view_mode='full', view_noise=0.05, focal_views=0, patch_drop=0.5,
                        batch=1024, micro=1024, epochs=200, warmup=30)),
+    # G. P2OT pseudo-labels (REVIEW §14.17) instead of Sinkhorn + me-max, on the tp30_mask setup: soft KL size prior
+    #    (lam), partial mass rho ramped from 0.1 to 1, queue of 5120 days, eps 0.1 replaces sharpening. me-max off.
+    **{f'tp30_ppot_l{lam:g}'.replace('.', 'p'): (f'TP30 mask-only views, P2OT pseudo-labels, lambda {lam:g}',
+                               dict(K=30, vars=TP, var_transform={'tp': 'cbrt'}, detrend=True, eval_full_field=True,
+                                    view_mode='full', view_noise=0.05, focal_views=0, patch_drop=0.5,
+                                    crit=dict(ot='ppot', me_max=False, memax_weight=0.0,
+                                              ppot=dict(eps=0.1, lam=lam, rho0=0.1, queue=5120,
+                                                        num_iters=1000, tol=1.0e-6))))
+       for lam in (0.3, 1, 3)},
 }
 
 
@@ -70,6 +79,7 @@ def build(name, desc, o):
     v = o.get('vars', TEMP)
     batch = o.get('batch', 512)
     c['criterion'].update(num_proto=o['K'], batch_size=batch, micro_batch_size=o.get('micro', batch))
+    c['criterion'].update(o.get('crit', {}))
     d = c['data']
     d.update(surf_vars=v['surf_vars'], npy_dir=NPY_DIR,
              norm_means=[0.0] * len(v['surf_vars']), norm_stds=[1.0] * len(v['surf_vars']))

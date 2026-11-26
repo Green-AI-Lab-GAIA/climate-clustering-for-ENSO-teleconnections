@@ -40,7 +40,7 @@ from src.utils import (
     grad_logger,
     AverageMeter
 )
-from src.losses import init_msn_loss
+from src.losses import init_msn_loss, PPOT
 from src.data_manager import (
     init_data,
     make_transforms
@@ -173,6 +173,11 @@ def main(args):
     use_ent = False if 'use_ent' not in args['criterion'] else args['criterion']['use_ent']
     reg = args['criterion']['me_max']
     use_sinkhorn = args['criterion']['use_sinkhorn']
+    # Pseudo-label solver: 'sinkhorn' (MSN default, equal cluster sizes) or 'ppot' (P2OT, soft size prior,
+    # progressive partial mass; criterion.ppot = {eps, lam, rho0, queue, num_iters, tol, sharpen}).
+    ot_kind = args['criterion'].get('ot', 'sinkhorn')
+    assert ot_kind in ('sinkhorn', 'ppot'), f'unknown criterion.ot {ot_kind!r}'
+    ppot_cfg = dict(args['criterion'].get('ppot') or {})
     num_proto = args['criterion']['num_proto']
     # --
     batch_size = args['criterion']['batch_size']
@@ -398,6 +403,13 @@ def main(args):
     _increment = (_final_m - _start_m) / (ipe * num_epochs * 1.25)
     momentum_scheduler = (_start_m + (_increment*i) for i in range(int(ipe*num_epochs*1.25)+1))
 
+    # -- P2OT pseudo-label solver (stateful: step counter for rho, queue, warm-started b)
+    ppot, ppot_sharpen = None, False
+    if ot_kind == 'ppot':
+        ppot_sharpen = bool(ppot_cfg.pop('sharpen', False))
+        ppot = PPOT(total_steps=ipe * num_epochs, **ppot_cfg)
+        logger.info(f'P2OT pseudo-labels: {ppot_cfg}, sharpen={ppot_sharpen}, steps={ipe * num_epochs}')
+
     # -- sharpening schedule
     _increment_T = (_final_T - _start_T) / (ipe * num_epochs * 1.25)
     sharpen_scheduler = (_start_T + (_increment_T*i) for i in range(int(ipe*num_epochs*1.25)+1))
@@ -417,6 +429,8 @@ def main(args):
             wd_scheduler.step()
             next(momentum_scheduler)
             next(sharpen_scheduler)
+        if ppot is not None:
+            ppot.step = start_epoch * ipe
 
     best_path = os.path.join(folder, f'{tag}-best.pth.tar')
     best_val_loss = float('inf')
@@ -510,6 +524,7 @@ def main(args):
                     (ploss, me_max, ent, _logs, _) = msn(
                         T=_final_T,
                         use_sinkhorn=use_sinkhorn,
+                        ot=ppot, ot_train=False, ot_sharpen=ppot_sharpen,
                         use_entropy=use_ent,
                         anchor_views=z,
                         target_views=target_views,
@@ -566,6 +581,7 @@ def main(args):
                     (ploss, me_max, ent, logs, _) = msn(
                         T=T,
                         use_sinkhorn=use_sinkhorn,
+                        ot=ppot, ot_train=True, ot_sharpen=ppot_sharpen,
                         use_entropy=use_ent,
                         anchor_views=anchor_views,
                         target_views=target_views,
@@ -631,6 +647,9 @@ def main(args):
                                    time_meter.avg,
                                    data_meter.avg))
 
+                    if ppot is not None:
+                        logger.info('[%d, %5d] ppot: rho %.3f, target cluster mass x K [%.2f, %.2f]'
+                                    % (epoch + 1, itr, _logs['rho'], _logs['size_min'], _logs['size_max']))
                     if grad_stats is not None:
                         logger.info('[%d, %5d] grad_stats: [%.2e %.2e] (%.2e, %.2e)'
                                     % (epoch + 1, itr,
