@@ -1,0 +1,5 @@
+method,K,self_assigned,median_rank,d_rel,d_rel_gt1,r_top20,r_medoid,cos_mean
+MSN tp30_mask (prototypes),30,0.4667,2.0000,1.9031,0.8000,0.8612,0.4306,0.6580
+MSN tp30_detr_s0 (prototypes),30,0.5000,1.5000,2.0967,0.8000,0.8845,0.4535,0.6415
+EOF k-means (centroids),30,1.0000,1.0000,0.0000,0.0000,0.9351,0.6034,
+EOF k-means (centroids),10,1.0000,1.0000,0.0003,0.0000,0.9228,0.5440,
